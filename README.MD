@@ -41,7 +41,7 @@ npm install
 O sistema depende de chaves de API para comunicação com o Supabase e outros serviços. Você deve criar um arquivo `.env` na raiz do projeto com as credenciais.
 
 > 🔗 **Importante:** As chaves de acesso atualizadas para o ambiente de desenvolvimento/produção estão disponíveis no link abaixo:
-> **[LINK DAS VARIÁVEIS AQUI]**
+> **[https://docs.google.com/document/d/10gi9qSYnq7zA9liaAd8vbkKmop_5n3e8mnU5sQUNCs4/edit?usp=sharing]**
 
 ### 4. Inicialização do Sistema
 Para garantir que o bundle seja gerado sem conflitos de cache e com as variáveis de ambiente carregadas:
