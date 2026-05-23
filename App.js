@@ -6,23 +6,33 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from './src/services/supabase';
 
-// Telas logadas
 import Home from './src/screens/Home';
 import Explorar from './src/screens/Explorar';
 import Perfil from './src/screens/Perfil';
-
-// Telas não logadas
 import Login from './src/screens/Login';
 import Cadastro from './src/screens/Cadastro';
+import Dicas from './src/screens/Dicas';
 
+// DECLARE AS VARIÁVEIS AQUI, FORA DAS FUNÇÕES
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator(); 
+const HomeStack = createNativeStackNavigator();
+
+function HomeStackNavigator() {
+  return (
+    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStack.Screen name="Dashboard" component={Home} /> 
+      <HomeStack.Screen name="AtividadeDetalhes" component={Dicas} />
+    </HomeStack.Navigator>
+  );
+} 
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { //Verifica se o usuário já estava logado ao abrir o app
+  // ... (seu useEffect e estado de carregamento permanecem iguais)
+  useEffect(() => { 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -33,7 +43,7 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);  //O array vazio garante que isso rode apenas uma vez, quando o app inicia
+  }, []);
 
   if (loading) {
     return (
@@ -45,16 +55,11 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      {session && session.user ? (
+      {true ? (
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
-            tabBarStyle: { 
-              backgroundColor: '#1E293B', 
-              borderTopWidth: 0,
-              height: 65,
-              paddingBottom: 10
-            },
+            tabBarStyle: { backgroundColor: '#1E293B', borderTopWidth: 0, height: 65, paddingBottom: 10 },
             tabBarActiveTintColor: '#10B981',
             tabBarInactiveTintColor: '#94A3B8',
             tabBarIcon: ({ color, size }) => {
@@ -66,12 +71,11 @@ export default function App() {
             },
           })}
         >
-          <Tab.Screen name="Início" component={Home} />
+          <Tab.Screen name="Inicio" component={HomeStackNavigator} />
           <Tab.Screen name="Explorar" component={Explorar} />
           <Tab.Screen name="Perfil" component={Perfil} />
         </Tab.Navigator>
       ) : (
-        /* Pilha de autenticação */
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Login" component={Login} />
           <Stack.Screen name="Cadastro" component={Cadastro} />
