@@ -2,13 +2,12 @@ import React, { useContext } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import YoutubePlayer from 'react-native-youtube-iframe';
-import { ThemeContext } from '../../contexts/ThemeContext'; // Ajuste o caminho se necessário
+import { Video, ResizeMode } from 'expo-av'; // Mantém o import do expo-av do seu amigo
+import { ThemeContext } from '../../contexts/ThemeContext';
 
 export default function Dicas({ route, navigation }) {
   const { isDark, colors } = useContext(ThemeContext);
 
-  // Recebe os dados da navegação ou usa valores padrão
   const atividade = route?.params?.atividade || {
     nome: 'Atividade',
     alongamento: 'Nenhuma instrução de alongamento disponível no momento.',
@@ -16,21 +15,24 @@ export default function Dicas({ route, navigation }) {
     comoPraticar: 'Informações sobre a prática serão adicionadas em breve.',
   };
 
-  const getYoutubeId = (url) => {
-    if (!url) return null;
-    const match = String(url).match(/(?:v=|\.be\/|embed\/)([A-Za-z0-9_-]{6,})/);
-    return match ? match[1] : null;
+  const videoSources = {
+    'Futebol': require('../../assets/videos/futebol.mp4'),
+    'Basquete': require('../../assets/videos/basquete.mp4'),
+    'Tênis': require('../../assets/videos/tenis.mp4'),
+    'Caminhada': require('../../assets/videos/caminhada.mp4'),
+    'Ciclismo': require('../../assets/videos/ciclismo.mp4'),
+    'Corrida': require('../../assets/videos/corrida.mp4'),
   };
 
-  const videoSelecionado = getYoutubeId(atividade.youtube_url);
-  const comoPraticar = atividade.comoPraticar || atividade.como_praticar || atividade.comoPraticarFallback;
+  const videoSelecionado = videoSources[atividade.nome];
+  const comoPraticar = atividade.comoPraticar || atividade.como_praticar;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
-        {/* Botão de Voltar */}
+        {/* Botão de Voltar Padronizado */}
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <View style={[styles.backIconBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
@@ -42,20 +44,22 @@ export default function Dicas({ route, navigation }) {
         <Text style={[styles.title, { color: colors.text }]}>{atividade.nome}</Text>
         <Text style={[styles.subtitle, { color: colors.sub }]}>Guia de preparação e execução</Text>
 
-        {/* SISTEMA DE VÍDEO INTELIGENTE */}
         {videoSelecionado ? (
           <View style={[styles.videoContainer, { borderColor: colors.border }]}>
-            <YoutubePlayer
-              height={200}
-              play={false}
-              videoId={videoSelecionado}
-              webViewStyle={{ opacity: 0.99 }} // Evita bugs de renderização no Android
+            <Video
+              source={videoSelecionado}
+              style={styles.nativeVideo}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay={true} 
+              isLooping={true}  
+              isMuted={true}    
+              useNativeControls 
             />
           </View>
         ) : (
           <View style={[styles.videoPlaceholder, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <MaterialCommunityIcons name="youtube" size={48} color={colors.sub} style={{ opacity: 0.5 }} />
-            <Text style={[styles.videoText, { color: colors.sub }]}>Vídeo demonstrativo indisponível</Text>
+            <MaterialCommunityIcons name="play-circle-outline" size={48} color={colors.sub} style={{ opacity: 0.5 }} />
+            <Text style={[styles.videoText, { color: colors.sub }]}>Vídeo demonstrativo em breve</Text>
           </View>
         )}
 
@@ -108,8 +112,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
   subtitle: { fontSize: 16, marginBottom: 24, marginTop: 4 },
   
-  // Player de Vídeo
+  // Players de Vídeo (Estilo unificado)
   videoContainer: { borderRadius: 20, overflow: 'hidden', marginBottom: 24, borderWidth: 1, backgroundColor: '#000' },
+  nativeVideo: { width: '100%', height: 200 },
   videoPlaceholder: { height: 200, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 24, borderWidth: 1, borderStyle: 'dashed' },
   videoText: { marginTop: 12, fontSize: 14, fontWeight: '600' },
   
