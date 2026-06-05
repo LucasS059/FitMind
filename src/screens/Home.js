@@ -490,6 +490,40 @@ export default function Home({ navigation }) {
   );
 }
 
+// Dicionário local com todas as dicas dos esportes
+const DICAS_ESPORTES = {
+  'Futebol': {
+    alongamento: 'Foque nos membros inferiores: isquiotibiais, quadríceps, panturrilhas e virilha. Mantenha cada posição por 30 segundos.',
+    aquecimento: '5 a 10 minutos de trote leve, seguidos de deslocamentos laterais, elevação de joelhos (skipping) e pequenos sprints.',
+    comoPraticar: 'Mantenha a cabeça erguida para ter visão de jogo. Use calçados adequados (chuteira com travas para campo, lisa para quadra) e hidrate-se frequentemente.'
+  },
+  'Basquete': {
+    alongamento: 'Alongue bem os ombros, tríceps, região lombar e panturrilhas, preparando o corpo para os saltos e impactos contínuos.',
+    aquecimento: 'Corrida leve, polichinelos, deslocamentos defensivos laterais e simulação de arremessos e rebotes sem a bola por 5 a 8 minutos.',
+    comoPraticar: 'Flexione os joelhos e mantenha o centro de gravidade baixo na defesa. Ao arremessar, use o movimento das pernas para impulsionar a bola, e não apenas os braços.'
+  },
+  'Tênis': {
+    alongamento: 'Alongamento dinâmico para os punhos, antebraços, manguito rotador (ombros) e rotação de tronco.',
+    aquecimento: 'Corridas curtas de frente e de costas na linha de fundo, agachamentos leves e rotações de braço para aquecer as articulações superiores.',
+    comoPraticar: 'Acompanhe o movimento da raquete até o final. Flexione os joelhos para buscar bolas baixas em vez de curvar as costas, e mantenha os olhos sempre na bola.'
+  },
+  'Caminhada': {
+    alongamento: 'Foque nas panturrilhas, coxas e lombar. Faça rotações leves nos tornozelos para evitar torções em terrenos irregulares.',
+    aquecimento: 'Comece com 5 minutos de caminhada em ritmo bem lento para soltar as articulações antes de acelerar para o seu ritmo ideal de treino.',
+    comoPraticar: 'Mantenha a postura ereta, olhe para frente (não para o chão) e balance os braços no ritmo da passada. Use um tênis com bom amortecimento para evitar impacto nos joelhos.'
+  },
+  'Ciclismo': {
+    alongamento: 'Alongue quadríceps, lombar, pescoço e punhos. A posição curvada na bicicleta exige muito da coluna e dos braços ao segurar o guidão.',
+    aquecimento: 'Pedale em uma marcha leve (sem fazer força) e em terreno plano nos primeiros 10 minutos para lubrificar as articulações dos joelhos.',
+    comoPraticar: 'Ajuste a altura do selim (banco) para que a perna fique quase totalmente esticada no ponto mais baixo do pedal. Mantenha os cotovelos levemente flexionados para absorver os impactos do asfalto.'
+  },
+  'Corrida': {
+    alongamento: 'Antes do treino, prefira alongamentos dinâmicos (em movimento). Guarde os alongamentos estáticos (puxar e segurar) para os glúteos e panturrilhas após o treino.',
+    aquecimento: '5 a 10 minutos de caminhada rápida. Faça exercícios educativos como "skipping" (elevação de joelhos) e "calcanhar no glúteo" para ativar a musculatura.',
+    comoPraticar: 'Pouse o pé no chão com a parte média (não bata o calcanhar com força). Respire em um ritmo constante e relaxe os ombros.'
+  }
+};
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   heroCard: { marginHorizontal: 20, marginTop: 16, marginBottom: 24, borderRadius: 32, borderWidth: 1, padding: 24, overflow: 'hidden', position: 'relative' },
