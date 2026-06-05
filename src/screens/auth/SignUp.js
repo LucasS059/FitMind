@@ -8,20 +8,11 @@ import { supabase } from '../../services/supabase';
 import { ThemeContext } from '../../contexts/ThemeContext';
 
 export default function SignUp({ navigation }) {
-  const { isDark } = useContext(ThemeContext);
+  const { isDark, colors } = useContext(ThemeContext);
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const C = {
-    bg:     isDark ? '#0B1120' : '#F8FAFC',
-    card:   isDark ? '#1E293B' : '#FFFFFF',
-    text:   isDark ? '#F1F5F9' : '#0F172A',
-    sub:    isDark ? '#94A3B8' : '#64748B',
-    accent: '#10B981',
-    border: isDark ? '#334155' : '#E2E8F0',
-  };
 
   const handleSignUp = async () => {
     if (!nome.trim() || !email.trim() || !password) {
@@ -58,59 +49,49 @@ export default function SignUp({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: C.bg }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView 
-          contentContainerStyle={styles.scroll} 
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text style={[styles.title, { color: C.text }]}>Criar Conta</Text>
-          <Text style={[styles.subtitle, { color: C.sub }]}>Comece sua jornada fitness agora</Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Text style={[styles.title, { color: colors.text }]}>Criar Conta</Text>
+          <Text style={[styles.subtitle, { color: colors.sub }]}>Comece sua jornada fitness agora</Text>
 
           <TextInput
-            style={[styles.input, { backgroundColor: C.card, color: C.text, borderColor: C.border }]}
+            style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
             placeholder="Nome completo"
-            placeholderTextColor={C.sub}
+            placeholderTextColor={colors.sub}
             value={nome}
             onChangeText={setNome}
             autoCapitalize="words"
           />
           <TextInput
-            style={[styles.input, { backgroundColor: C.card, color: C.text, borderColor: C.border }]}
+            style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
             placeholder="E-mail"
-            placeholderTextColor={C.sub}
+            placeholderTextColor={colors.sub}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
           />
           <TextInput
-            style={[styles.input, { backgroundColor: C.card, color: C.text, borderColor: C.border }]}
+            style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
             placeholder="Senha (mín. 6 caracteres)"
-            placeholderTextColor={C.sub}
+            placeholderTextColor={colors.sub}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
           />
 
           <TouchableOpacity
-            style={[styles.btn, { backgroundColor: C.accent, opacity: loading ? 0.6 : 1 }]}
+            style={[styles.btn, { backgroundColor: colors.accent, opacity: loading ? 0.6 : 1 }]}
             onPress={handleSignUp}
             disabled={loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.btnText}>Cadastrar</Text>
-            )}
+            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Cadastrar</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={[styles.backText, { color: C.sub }]}>Já tenho conta · Entrar</Text>
+            <Text style={[styles.backText, { color: colors.sub }]}>Já tenho conta · Entrar</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

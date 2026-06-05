@@ -1,25 +1,13 @@
 import React, { useState, useContext } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, Alert,
-  ActivityIndicator, StyleSheet, StatusBar,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
 import { ThemeContext } from '../../contexts/ThemeContext';
 
 export default function ResetPassword() {
-  const { isDark } = useContext(ThemeContext);
+  const { isDark, colors } = useContext(ThemeContext);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const C = {
-    bg:     isDark ? '#0B1120' : '#F8FAFC',
-    card:   isDark ? '#1E293B' : '#FFFFFF',
-    text:   isDark ? '#F1F5F9' : '#0F172A',
-    sub:    isDark ? '#94A3B8' : '#64748B',
-    accent: '#10B981',
-    border: isDark ? '#334155' : '#E2E8F0',
-  };
 
   const salvarSenha = async () => {
     if (!password || password.length < 6) {
@@ -37,12 +25,7 @@ export default function ResetPassword() {
       }
 
       Alert.alert('Senha alterada!', 'Faça login com sua nova senha.', [
-        {
-          text: 'OK',
-          onPress: async () => {
-            await supabase.auth.signOut();
-          },
-        },
+        { text: 'OK', onPress: async () => await supabase.auth.signOut() },
       ]);
     } catch (err) {
       Alert.alert('Erro inesperado', err.message);
@@ -52,18 +35,16 @@ export default function ResetPassword() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: C.bg }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <View style={styles.content}>
-        <Text style={[styles.title, { color: C.text }]}>Nova Senha</Text>
-        <Text style={[styles.subtitle, { color: C.sub }]}>
-          Escolha uma senha com pelo menos 6 caracteres.
-        </Text>
+        <Text style={[styles.title, { color: colors.text }]}>Nova Senha</Text>
+        <Text style={[styles.subtitle, { color: colors.sub }]}>Escolha uma senha com pelo menos 6 caracteres.</Text>
 
         <TextInput
-          style={[styles.input, { backgroundColor: C.card, color: C.text, borderColor: C.border }]}
+          style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
           placeholder="Nova senha"
-          placeholderTextColor={C.sub}
+          placeholderTextColor={colors.sub}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -72,16 +53,12 @@ export default function ResetPassword() {
         />
 
         <TouchableOpacity
-          style={[styles.btn, { backgroundColor: C.accent, opacity: loading ? 0.65 : 1 }]}
+          style={[styles.btn, { backgroundColor: colors.accent, opacity: loading ? 0.65 : 1 }]}
           onPress={salvarSenha}
           disabled={loading}
           activeOpacity={0.85}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={styles.btnText}>Salvar senha</Text>
-          )}
+          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Salvar senha</Text>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

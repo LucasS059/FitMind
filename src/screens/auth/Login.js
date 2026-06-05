@@ -8,19 +8,10 @@ import { supabase } from '../../services/supabase';
 import { ThemeContext } from '../../contexts/ThemeContext';
 
 export default function Login({ navigation }) {
-  const { isDark } = useContext(ThemeContext);
+  const { isDark, colors } = useContext(ThemeContext); 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const C = {
-    bg:     isDark ? '#0B1120' : '#F8FAFC',
-    card:   isDark ? '#1E293B' : '#FFFFFF',
-    text:   isDark ? '#F1F5F9' : '#0F172A',
-    sub:    isDark ? '#94A3B8' : '#64748B',
-    accent: '#10B981',
-    border: isDark ? '#334155' : '#E2E8F0',
-  };
 
   const fazerLogin = async () => {
     if (!email.trim() || !senha.trim()) {
@@ -29,7 +20,6 @@ export default function Login({ navigation }) {
     }
 
     setLoading(true);
-
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
@@ -49,19 +39,19 @@ export default function Login({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: C.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView 
         style={styles.content} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Text style={[styles.title, { color: C.text }]}>FitMind</Text>
+        <Text style={[styles.title, { color: colors.text }]}>FitMind</Text>
         
         <View style={styles.form}>
           <TextInput 
-            style={[styles.input, { backgroundColor: C.card, color: C.text, borderColor: C.border }]}
+            style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
             placeholder="Seu e-mail"
-            placeholderTextColor={C.sub}
+            placeholderTextColor={colors.sub}
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
@@ -69,32 +59,28 @@ export default function Login({ navigation }) {
           />
           
           <TextInput 
-            style={[styles.input, { backgroundColor: C.card, color: C.text, borderColor: C.border }]}
+            style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
             placeholder="Sua senha"
-            placeholderTextColor={C.sub}
+            placeholderTextColor={colors.sub}
             secureTextEntry
             value={senha}
             onChangeText={setSenha}
           />
 
           <TouchableOpacity 
-            style={[styles.btn, { backgroundColor: C.accent, opacity: loading ? 0.6 : 1 }]}
+            style={[styles.btn, { backgroundColor: colors.accent, opacity: loading ? 0.6 : 1 }]}
             onPress={fazerLogin}
             disabled={loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.btnText}>Entrar</Text>
-            )}
+            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Entrar</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-            <Text style={[styles.secondaryText, { color: C.sub }]}>Criar nova conta</Text>
+            <Text style={[styles.secondaryText, { color: colors.sub }]}>Criar nova conta</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-            <Text style={[styles.linkText, { color: C.accent }]}>Esqueci minha senha</Text>
+            <Text style={[styles.linkText, { color: colors.accent }]}>Esqueci minha senha</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

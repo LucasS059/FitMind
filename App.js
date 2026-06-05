@@ -21,15 +21,22 @@ export default function App() {
       if (!params?.accessToken) return;
 
       try {
-        await supabase.auth.setSession({ access_token: params.accessToken, refresh_token: params.refreshToken });
+        await supabase.auth.setSession({ 
+          access_token: params.accessToken, 
+          refresh_token: params.refreshToken 
+        });
+        
         if (params.type === 'recovery' && navigationRef.isReady()) {
           navigationRef.navigate('AuthStack', { screen: 'ResetPassword' });
         }
-      } catch (e) {}
+      } catch (error) {
+        console.warn("Erro ao processar Deep Link de autenticação:", error);
+      }
     };
 
     const sub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
-    Linking.getInitialURL().then(handleDeepLink).catch(() => {});
+    Linking.getInitialURL().then(handleDeepLink).catch((err) => console.warn("Erro no URL Inicial:", err));
+    
     return () => sub.remove();
   }, [navigationRef]);
 
@@ -58,6 +65,8 @@ function parseAuthParams(url) {
       const h = new URLSearchParams(url.split('#')[1] || '');
       if (h.get('access_token')) return { accessToken: h.get('access_token'), refreshToken: h.get('refresh_token'), type: h.get('type') };
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Falha no parse do URL:", e);
+  }
   return null;
 }

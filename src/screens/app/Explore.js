@@ -5,306 +5,367 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { supabase } from '../../services/supabase';
-import { ThemeContext } from '../../contexts/ThemeContext'; // Usando o tema global!
+import { ThemeContext } from '../../contexts/ThemeContext';
 
 export default function Explorar() {
-  const { isDark } = useContext(ThemeContext);
+  const { isDark, colors } = useContext(ThemeContext);
   
   const [locais, setLocais] = useState([]);
   const [modalidades, setModalidades] = useState([]);
-  const [sugestoes, setSugestoes] = useState([]);
   const [minhaLocalizacao, setMinhaLocalizacao] = useState(null);
+  
+  // Estados de Controle de UI
   const [loading, setLoading] = useState(true);
+  const [isFetchingMap, setIsFetchingMap] = useState(false);
   const [detalheVisible, setDetalheVisible] = useState(false);
   const [localSelecionado, setLocalSelecionado] = useState(null);
   const [modalidadeAtiva, setModalidadeAtiva] = useState(null);
-
-  const theme = {
-    bg: isDark ? '#0B1120' : '#F8FAFC',
-    card: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#F1F5F9' : '#0F172A',
-    subtext: isDark ? '#94A3B8' : '#64748B',
-    accent: '#10B981',
-    border: isDark ? '#334155' : '#E2E8F0',
-    hero: isDark ? '#0F2035' : '#E2E8F0',
-    heroGlow: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.12)',
-  };
+  
+  // Estados Novos: Raio e Paginação
+  const [raioBuscaKm, setRaioBuscaKm] = useState(3); // 1, 3 ou 5 km
+  const [itensVisiveis, setItensVisiveis] = useState(5); // Começa mostrando 5 itens
 
   const calcularDistancia = (lat1, lon1, lat2, lon2) => {
     const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return (R * c).toFixed(1); 
+    return (R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))).toFixed(1); 
   };
 
+  // 1. EFEITO INICIAL: Pega GPS e Modalidades uma única vez
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         let { status } = await Location.requestForegroundPermissionsAsync();
-        let userLat = 0; let userLng = 0;
+        let userLat = -23.6815; // Padrão
+        let userLng = -46.6205; 
+        
         if (status === 'granted') {
-          let currentLocation = await Location.getCurrentPositionAsync({});
-          userLat = currentLocation.coords.latitude;
-          userLng = currentLocation.coords.longitude;
-          setMinhaLocalizacao({ latitude: userLat, longitude: userLng });
+          let loc = await Location.getCurrentPositionAsync({});
+          userLat = loc.coords.latitude;
+          userLng = loc.coords.longitude;
         }
+        setMinhaLocalizacao({ latitude: userLat, longitude: userLng });
 
-        const [{ data: locaisDB, error }, { data: modalidadesDB }, { data: sugestoesDB }] = await Promise.all([
-          supabase.from('locais').select('*'),
-          supabase.from('modalidades').select('id, nome, icone').order('nome'),
-          supabase.from('sugestoes_ia').select('id, local_id, local_nome, latitude, longitude, score, fonte, modalidade_id').order('criado_em', { ascending: false }),
-        ]);
-        if (error) throw error;
-
-        const locaisComDistancia = (locaisDB || []).map(local => ({
-          ...local,
-          distancia: status === 'granted' ? calcularDistancia(userLat, userLng, local.latitude, local.longitude) : '?'
-        })).sort((a, b) => a.distancia - b.distancia);
-
-        setLocais(locaisComDistancia);
+        const { data: modalidadesDB } = await supabase.from('modalidades').select('id, nome, icone');
         setModalidades(modalidadesDB || []);
-        setSugestoes(sugestoesDB || []);
       } catch (error) {
-        Alert.alert("Erro", "Não foi possível carregar os locais.");
+        console.error("Erro no GPS:", error);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const abrirRotaNoNativo = (lat, lng, nome) => {
-    const scheme = Platform.select({ ios: 'maps://0,0?q=', android: 'geo:0,0?q=' });
-    const latLng = `${lat},${lng}`;
-    const label = nome;
-    const url = Platform.select({
-      ios: `${scheme}${label}@${latLng}`,
-      android: `${scheme}${latLng}(${label})`
-    });
-    Linking.openURL(url);
+  // 2. EFEITO SECUNDÁRIO: Busca no OpenStreetMap sempre que a localização ou o RAIO mudar
+  useEffect(() => {
+    if (!minhaLocalizacao) return;
+
+    // Criamos um AbortController para cancelar requisições "encavaladas"
+    const abortController = new AbortController();
+
+    (async () => {
+      try {
+        setIsFetchingMap(true);
+        const radiusMeters = raioBuscaKm * 1000;
+        const { latitude: lat, longitude: lng } = minhaLocalizacao;
+
+        const queryOSM = `
+          [out:json];
+          (
+            node["leisure"="park"](around:${radiusMeters},${lat},${lng});
+            way["leisure"="park"](around:${radiusMeters},${lat},${lng});
+            node["leisure"="pitch"](around:${radiusMeters},${lat},${lng});
+            way["leisure"="pitch"](around:${radiusMeters},${lat},${lng});
+          );
+          out center tags;
+        `;
+        
+        const resOSM = await fetch(
+          `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(queryOSM)}`,
+          { signal: abortController.signal } // Atrela o cancelamento aqui
+        );
+
+        if (!resOSM.ok) {
+          throw new Error('Servidor de mapas ocupado ou erro na rede.');
+        }
+
+        const dataOSM = await resOSM.json();
+
+        const locaisReais = dataOSM.elements
+          .map(el => {
+            const localLat = el.lat || el.center?.lat;
+            const localLon = el.lon || el.center?.lon;
+            const isPark = el.tags?.leisure === 'park';
+            const nomeLocal = el.tags?.name || '';
+            const esporteInfo = el.tags?.sport || ''; 
+            
+            return {
+              id: el.id.toString(),
+              nome: nomeLocal || (isPark ? 'Parque Público' : 'Quadra Esportiva'),
+              latitude: localLat,
+              longitude: localLon,
+              tipo: isPark ? 'Parque' : 'Quadra',
+              esporte: esporteInfo.toLowerCase(), 
+              icone: isPark ? 'tree' : 'basketball',
+              endereco: 'Endereço mapeado na região',
+              distancia: calcularDistancia(lat, lng, localLat, localLon)
+            };
+          })
+          .filter(local => local.nome !== 'Parque Público' && local.nome !== 'Quadra Esportiva')
+          .sort((a, b) => a.distancia - b.distancia);
+
+        setLocais(locaisReais); 
+        setItensVisiveis(5); 
+
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        
+        console.log("Aviso de Mapa: Não foi possível atualizar os dados agora.", error.message);
+      } finally {
+        setIsFetchingMap(false);
+      }
+    })();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [minhaLocalizacao, raioBuscaKm])
+
+  const alternarRaio = () => {
+    setRaioBuscaKm(prev => prev === 1 ? 3 : prev === 3 ? 5 : 1);
   };
 
-  const abrirUrl = (url) => {
-    if (!url) return;
-    Linking.openURL(url);
+  const abrirRotaNoNativo = (lat, lng, nome) => {
+    const scheme = Platform.select({ ios: 'maps://0,0?q=', android: 'geo:0,0?q=' });
+    Linking.openURL(Platform.select({ ios: `${scheme}${nome}@${lat},${lng}`, android: `${scheme}${lat},${lng}(${nome})` }));
   };
 
   const locaisFiltrados = useMemo(() => {
-    if (!modalidadeAtiva) return locais;
-    return locais.filter(local => local.modalidade_id === modalidadeAtiva);
-  }, [locais, modalidadeAtiva]);
+    if (!modalidadeAtiva) {
+      return locais.filter(l => !l.nome.toLowerCase().includes('praça'));
+    }
+    
+    const modName = modalidades.find(m => m.id === modalidadeAtiva)?.nome.toLowerCase() || '';
+    
+    if (modName.includes('tênis') || modName.includes('tennis')) {
+      return locais.filter(l => l.esporte.includes('tennis'));
+    } 
+    else if (modName.includes('basquete') || modName.includes('basketball')) {
+      return locais.filter(l => l.esporte.includes('basketball'));
+    }
+    else if (modName.includes('futsal') || modName.includes('futebol') || modName.includes('soccer')) {
+      return locais.filter(l => l.esporte.includes('soccer'));
+    }
+    else if (modName.includes('vôlei') || modName.includes('volleyball')) {
+      return locais.filter(l => l.esporte.includes('volleyball'));
+    }
+    else if (modName.includes('ciclismo') || modName.includes('bicicleta')) {
+      return locais.filter(l => l.tipo === 'Parque' && !l.nome.toLowerCase().includes('praça'));
+    }
+    else if (modName.includes('corrid') || modName.includes('caminhada')) {
+      return locais.filter(l => l.tipo === 'Parque');
+    }
 
-  const sugestoesEnriquecidas = useMemo(() => {
-    if (!sugestoes.length) return [];
-    const locaisById = new Map(locais.map(local => [local.id, local]));
-    return sugestoes.map((sugestao) => {
-      const local = sugestao.local_id ? locaisById.get(sugestao.local_id) : null;
-      return {
-        ...sugestao,
-        local: local || null,
-      };
-    });
-  }, [sugestoes, locais]);
+    return locais;
+  }, [locais, modalidadeAtiva, modalidades]);
+
+  const topSugestoes = locaisFiltrados.slice(0, 3);
+  const locaisPaginados = locaisFiltrados.slice(0, itensVisiveis);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.centerLoading, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={{ color: colors.sub, marginTop: 16, fontWeight: '600' }}>Iniciando radares...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <View style={[styles.heroCard, { backgroundColor: theme.hero, borderColor: theme.border }]}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      
+      {/* Header com Ajuste de Raio ao invés da Lupa */}
+      <View style={styles.topHeader}>
+        <Text style={[styles.pageTitle, { color: colors.text }]}>Explorar</Text>
+        <TouchableOpacity 
+          style={[styles.radiusBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={alternarRaio}
+          disabled={isFetchingMap}
         >
-          <View style={[styles.heroGlow, { backgroundColor: theme.heroGlow }]} />
-          <Text style={[styles.heroTitle, { color: theme.text }]}>Explorar Locais</Text>
-          <Text style={[styles.heroSubtitle, { color: theme.subtext }]}>Parques, quadras e pistas perto de voce</Text>
-          <View style={styles.heroRow}>
-            <View style={[styles.heroPill, { borderColor: theme.border }]}
-            >
-              <MaterialCommunityIcons name="map-marker-distance" size={14} color={theme.accent} />
-              <Text style={[styles.heroPillText, { color: theme.text }]}>Perto de voce</Text>
-            </View>
-            <View style={[styles.heroPill, { borderColor: theme.border }]}
-            >
-              <MaterialCommunityIcons name="robot-outline" size={14} color={theme.accent} />
-              <Text style={[styles.heroPillText, { color: theme.text }]}>Sugestoes IA</Text>
-            </View>
-          </View>
-        </View>
+          {isFetchingMap ? (
+            <ActivityIndicator size="small" color={colors.accent} />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="radar" size={18} color={colors.accent} />
+              <Text style={[styles.radiusText, { color: colors.text }]}>{raioBuscaKm} km</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
-      {loading ? (
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={theme.accent} />
-          <Text style={{ color: theme.subtext, marginTop: 10 }}>Buscando locais e seu GPS...</Text>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            <TouchableOpacity
-              style={[styles.chip, { borderColor: theme.border, backgroundColor: modalidadeAtiva ? 'transparent' : theme.card }]}
-              onPress={() => setModalidadeAtiva(null)}
-            >
-              <Text style={[styles.chipText, { color: theme.text }]}>Todas</Text>
-            </TouchableOpacity>
-            {modalidades.map((mod) => (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        
+        {/* Chips de Filtro */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+          <TouchableOpacity 
+            style={[
+              styles.chip, 
+              modalidadeAtiva === null ? { backgroundColor: colors.text, borderColor: colors.text } : { backgroundColor: colors.card, borderColor: colors.border }
+            ]}
+            onPress={() => { setModalidadeAtiva(null); setItensVisiveis(5); }}
+          >
+            <Text style={[styles.chipText, { color: modalidadeAtiva === null ? colors.bg : colors.text }]}>Todos</Text>
+          </TouchableOpacity>
+          {modalidades.map((mod) => {
+            const isActive = modalidadeAtiva === mod.id;
+            return (
               <TouchableOpacity
                 key={mod.id}
-                style={[styles.chip, { borderColor: theme.border, backgroundColor: modalidadeAtiva === mod.id ? theme.card : 'transparent' }]}
-                onPress={() => setModalidadeAtiva(mod.id)}
+                style={[
+                  styles.chip, 
+                  isActive ? { backgroundColor: colors.text, borderColor: colors.text } : { backgroundColor: colors.card, borderColor: colors.border }
+                ]}
+                onPress={() => { setModalidadeAtiva(mod.id); setItensVisiveis(5); }}
               >
-                <MaterialCommunityIcons name={mod.icone || 'run'} size={14} color={theme.accent} />
-                <Text style={[styles.chipText, { color: theme.text }]}>{mod.nome}</Text>
+                <Text style={[styles.chipText, { color: isActive ? colors.bg : colors.text }]}>{mod.nome}</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-          
-          {/* MAPA PEQUENO NO TOPO */}
-          <View style={styles.mapContainer}>
-            <MapView
-              style={styles.map}
-              initialRegion={{
-                latitude: minhaLocalizacao ? minhaLocalizacao.latitude : -23.6815, // Padrão Diadema
-                longitude: minhaLocalizacao ? minhaLocalizacao.longitude : -46.6205,
-                latitudeDelta: 0.08,
-                longitudeDelta: 0.08,
-              }}
-              showsUserLocation={true}
-              userInterfaceStyle={isDark ? 'dark' : 'light'}
-            >
-              {locaisFiltrados.map(local => (
-                <Marker key={local.id} coordinate={{ latitude: parseFloat(local.latitude), longitude: parseFloat(local.longitude) }} title={local.nome} description={local.tipo} />
-              ))}
-            </MapView>
-          </View>
-
-          <View style={{ paddingHorizontal: 24 }}>
-            {sugestoesEnriquecidas.length > 0 && (
-              <View style={styles.sectionBlock}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Sugestoes da IA</Text>
-                  <Text style={[styles.sectionHint, { color: theme.subtext }]}>Baseado no seu perfil</Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionRow}>
-                  {sugestoesEnriquecidas.map((item) => {
-                    const local = item.local;
-                    const nome = local?.nome || item.local_nome || 'Local sugerido';
-                    const distancia = local?.distancia || (item.latitude && minhaLocalizacao
-                      ? calcularDistancia(minhaLocalizacao.latitude, minhaLocalizacao.longitude, item.latitude, item.longitude)
-                      : null);
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[styles.suggestionCard, { backgroundColor: theme.card, borderColor: theme.border }]}
-                        onPress={() => {
-                          if (local) {
-                            setLocalSelecionado(local);
-                            setDetalheVisible(true);
-                          }
-                        }}
-                      >
-                        <View style={[styles.suggestionBadge, { backgroundColor: `${theme.accent}15` }]}
-                        >
-                          <MaterialCommunityIcons name="sparkles" size={14} color={theme.accent} />
-                          <Text style={[styles.suggestionBadgeText, { color: theme.accent }]}>IA</Text>
-                        </View>
-                        <Text style={[styles.suggestionTitle, { color: theme.text }]} numberOfLines={2}>{nome}</Text>
-                        <Text style={[styles.suggestionMeta, { color: theme.subtext }]}
-                        >{distancia ? `${distancia} km` : 'Perto de voce'}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Mais Próximos de Você</Text>
-            
-            {locaisFiltrados.map((local) => (
-              <TouchableOpacity 
+            );
+          })}
+        </ScrollView>
+        
+        {/* Mapa Interativo em Destaque */}
+        <View style={[styles.mapWrapper, { borderColor: colors.border }]}>
+          <MapView
+            style={styles.map}
+            initialRegion={{
+              latitude: minhaLocalizacao?.latitude || -23.6815,
+              longitude: minhaLocalizacao?.longitude || -46.6205,
+              latitudeDelta: raioBuscaKm === 1 ? 0.02 : raioBuscaKm === 3 ? 0.06 : 0.1, // Zoom dinâmico
+              longitudeDelta: raioBuscaKm === 1 ? 0.02 : raioBuscaKm === 3 ? 0.06 : 0.1,
+            }}
+            showsUserLocation={true}
+            userInterfaceStyle={isDark ? 'dark' : 'light'}
+            pitchEnabled={false}
+          >
+            {locaisFiltrados.map(local => (
+              <Marker 
                 key={local.id} 
-                style={[styles.placeCard, { backgroundColor: theme.card, borderColor: theme.border }]}
-                onPress={() => {
-                  setLocalSelecionado(local);
-                  setDetalheVisible(true);
-                }}
+                coordinate={{ latitude: parseFloat(local.latitude), longitude: parseFloat(local.longitude) }} 
+                onPress={() => { setLocalSelecionado(local); setDetalheVisible(true); }}
+              >
+                <View style={[styles.markerBody, { backgroundColor: colors.accent }]}>
+                  <MaterialCommunityIcons name={local.icone || 'map-marker'} size={18} color="#FFF" />
+                </View>
+                <View style={[styles.markerArrow, { borderTopColor: colors.accent }]} />
+              </Marker>
+            ))}
+          </MapView>
+        </View>
+
+        {/* Principais (Top 3) */}
+        {topSugestoes.length > 0 && (
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Destaques Próximos</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionRow}>
+              {topSugestoes.map((item) => (
+                <TouchableOpacity
+                  key={`destaque-${item.id}`}
+                  style={[styles.suggestionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => { setLocalSelecionado(item); setDetalheVisible(true); }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.suggestionHeader}>
+                    <View style={[styles.iconCircle, { backgroundColor: colors.divider }]}>
+                      <MaterialCommunityIcons name={item.icone || 'map-marker'} size={20} color={colors.accent} />
+                    </View>
+                  </View>
+                  <View style={styles.suggestionFooter}>
+                    <Text style={[styles.suggestionTitle, { color: colors.text }]} numberOfLines={2}>{item.nome}</Text>
+                    <Text style={[styles.suggestionMeta, { color: colors.sub }]}>{item.distancia} km daqui</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Lista Paginada (Evita scroll infinito) */}
+        {locaisPaginados.length > 0 && (
+          <View style={styles.listSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Resultados</Text>
+            {locaisPaginados.map((local) => (
+              <TouchableOpacity 
+                key={`lista-${local.id}`} 
+                style={[styles.placeCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => { setLocalSelecionado(local); setDetalheVisible(true); }}
                 activeOpacity={0.7}
               >
-                <View style={[styles.placeIconArea, { backgroundColor: `${theme.accent}15` }]}>
-                  <MaterialCommunityIcons name={local.icone} size={28} color={theme.accent} />
+                <View style={[styles.placeIconArea, { backgroundColor: colors.divider }]}>
+                  <MaterialCommunityIcons name={local.icone || 'map-marker'} size={24} color={colors.sub} />
                 </View>
                 <View style={styles.placeInfo}>
-                  <Text style={[styles.placeName, { color: theme.text }]}>{local.nome}</Text>
-                  <Text style={[styles.placeCity, { color: theme.subtext }]}>{local.cidade}</Text>
+                  <Text style={[styles.placeName, { color: colors.text }]}>{local.nome}</Text>
+                  <Text style={[styles.placeCity, { color: colors.sub }]}>{local.tipo}</Text>
                   <View style={styles.tagsRow}>
-                    <View style={styles.badgeContainer}>
-                      <Text style={[styles.badgeText, { color: theme.accent }]}>{local.tipo}</Text>
+                    <View style={styles.distBadge}>
+                      <MaterialCommunityIcons name="map-marker-distance" size={14} color={colors.sub} />
+                      <Text style={[styles.distText, { color: colors.sub }]}>{local.distancia} km</Text>
                     </View>
-                    {local.nivel ? (
-                      <View style={styles.levelBadge}>
-                        <Text style={[styles.levelText, { color: theme.subtext }]}>{local.nivel}</Text>
-                      </View>
-                    ) : null}
-                    <Text style={[styles.distText, { color: theme.subtext }]}>
-                      <MaterialCommunityIcons name="map-marker-distance" size={14} /> {local.distancia} km
-                    </Text>
                   </View>
                 </View>
-                <View style={styles.routeBtn}>
-                  <MaterialCommunityIcons name="navigation" size={24} color="#3B82F6" />
-                </View>
+                <MaterialCommunityIcons name="chevron-right" size={24} color={colors.sub} />
               </TouchableOpacity>
             ))}
+
+            {/* BOTÃO CARREGAR MAIS */}
+            {locaisFiltrados.length > itensVisiveis && (
+              <TouchableOpacity 
+                style={[styles.loadMoreBtn, { borderColor: colors.border }]} 
+                onPress={() => setItensVisiveis(prev => prev + 5)}
+              >
+                <Text style={[styles.loadMoreText, { color: colors.text }]}>Carregar mais</Text>
+              </TouchableOpacity>
+            )}
           </View>
+        )}
+      </ScrollView>
 
-        </ScrollView>
-      )}
-
+      {/* Modal de Detalhes */}
       <Modal animationType="slide" transparent visible={detalheVisible} onRequestClose={() => setDetalheVisible(false)}>
         <Pressable style={styles.overlay} onPress={() => setDetalheVisible(false)}>
-          <Pressable style={[styles.detailSheet, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={[styles.sheetHandle, { backgroundColor: theme.border }]} />
+          <Pressable style={[styles.detailSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.divider }]} />
 
-            <Text style={[styles.detailTitle, { color: theme.text }]}>
-              {localSelecionado?.nome || 'Local'}
-            </Text>
-            {localSelecionado?.categoria && (
-              <Text style={[styles.detailSub, { color: theme.subtext }]}>Categoria: {localSelecionado.categoria}</Text>
-            )}
-            {localSelecionado?.descricao && (
-              <Text style={[styles.detailDesc, { color: theme.subtext }]}>{localSelecionado.descricao}</Text>
-            )}
+            <View style={styles.sheetHeader}>
+              <View style={[styles.sheetIconBox, { backgroundColor: colors.divider }]}>
+                <MaterialCommunityIcons name={localSelecionado?.icone || 'map-marker'} size={32} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.detailTitle, { color: colors.text }]}>{localSelecionado?.nome}</Text>
+                <Text style={[styles.detailSub, { color: colors.sub }]}>{localSelecionado?.tipo} • {localSelecionado?.distancia} km</Text>
+              </View>
+            </View>
 
-            <View style={styles.detailGrid}>
-              {localSelecionado?.endereco && (
-                <Text style={[styles.detailItem, { color: theme.text }]}>Endereco: {localSelecionado.endereco}</Text>
-              )}
-              {localSelecionado?.horario && (
-                <Text style={[styles.detailItem, { color: theme.text }]}>Horario: {localSelecionado.horario}</Text>
-              )}
-              {localSelecionado?.telefone && (
-                <Text style={[styles.detailItem, { color: theme.text }]}>Telefone: {localSelecionado.telefone}</Text>
-              )}
+            <View style={[styles.detailGrid, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+              <View style={styles.gridItem}>
+                <MaterialCommunityIcons name="compass-outline" size={18} color={colors.sub} />
+                <Text style={[styles.gridText, { color: colors.text }]}>{localSelecionado?.endereco}</Text>
+              </View>
             </View>
 
             <View style={styles.detailActions}>
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: theme.accent }]}
-                onPress={() => {
-                  if (!localSelecionado) return;
-                  abrirRotaNoNativo(localSelecionado.latitude, localSelecionado.longitude, localSelecionado.nome);
-                }}
+                style={[styles.actionBtn, { backgroundColor: colors.accent }]}
+                onPress={() => abrirRotaNoNativo(localSelecionado.latitude, localSelecionado.longitude, localSelecionado.nome)}
               >
-                <MaterialCommunityIcons name="navigation" size={18} color="#FFF" />
-                <Text style={styles.actionText}>Abrir rota</Text>
+                <MaterialCommunityIcons name="navigation" size={20} color="#FFF" />
+                <Text style={[styles.actionText, { color: '#FFF' }]}>Iniciar Rota</Text>
               </TouchableOpacity>
-
-              {localSelecionado?.url ? (
-                <TouchableOpacity
-                  style={[styles.actionBtnOutline, { borderColor: theme.border }]}
-                  onPress={() => abrirUrl(localSelecionado.url)}
-                >
-                  <MaterialCommunityIcons name="web" size={18} color={theme.text} />
-                  <Text style={[styles.actionTextOutline, { color: theme.text }]}>Ver site</Text>
-                </TouchableOpacity>
-              ) : null}
             </View>
           </Pressable>
         </Pressable>
@@ -315,56 +376,57 @@ export default function Explorar() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12 },
-  heroCard: { borderRadius: 24, padding: 18, borderWidth: 1, overflow: 'hidden' },
-  heroGlow: { position: 'absolute', top: -40, right: -30, width: 120, height: 120, borderRadius: 999 },
-  heroTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
-  heroSubtitle: { fontSize: 13, fontWeight: '600', marginTop: 6 },
-  heroRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  heroPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
-  heroPillText: { fontSize: 11, fontWeight: '700' },
   centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  chipsRow: { paddingHorizontal: 20, paddingBottom: 14, gap: 8, alignItems: 'center' },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
-  chipText: { fontSize: 12, fontWeight: '700' },
   
-  mapContainer: { height: 250, marginHorizontal: 20, borderRadius: 24, overflow: 'hidden', marginBottom: 24, elevation: 4 },
+  topHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16 },
+  pageTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  radiusBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, height: 40, borderRadius: 12, borderWidth: 1 },
+  radiusText: { fontSize: 14, fontWeight: '700' },
+  
+  chipsRow: { paddingHorizontal: 20, paddingBottom: 20, gap: 8, alignItems: 'center' },
+  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1 },
+  chipText: { fontSize: 14, fontWeight: '600' },
+  
+  mapWrapper: { height: 260, marginHorizontal: 20, borderRadius: 20, overflow: 'hidden', marginBottom: 24, borderWidth: 1 },
   map: { flex: 1 },
+  markerBody: { padding: 6, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  markerArrow: { width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 8, borderLeftColor: 'transparent', borderRightColor: 'transparent', alignSelf: 'center' },
 
-  sectionBlock: { marginBottom: 22 },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', marginBottom: 16 },
-  sectionHint: { fontSize: 12, fontWeight: '600', marginBottom: 16 },
-  suggestionRow: { paddingBottom: 4, gap: 12 },
-  suggestionCard: { width: 180, borderRadius: 18, borderWidth: 1, padding: 14 },
-  suggestionBadge: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, marginBottom: 10 },
-  suggestionBadgeText: { fontSize: 10, fontWeight: '800' },
-  suggestionTitle: { fontSize: 15, fontWeight: '800', marginBottom: 6 },
-  suggestionMeta: { fontSize: 12, fontWeight: '600' },
-  placeCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, borderWidth: 1, marginBottom: 16 },
-  placeIconArea: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  sectionBlock: { marginBottom: 24 },
+  sectionHeaderRow: { paddingHorizontal: 20, marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '700' },
+  suggestionRow: { paddingHorizontal: 20, gap: 12 },
+  suggestionCard: { width: 180, height: 140, borderRadius: 20, padding: 16, justifyContent: 'space-between', borderWidth: 1 },
+  suggestionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  iconCircle: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  suggestionFooter: { gap: 4 },
+  suggestionTitle: { fontSize: 16, fontWeight: '700' },
+  suggestionMeta: { fontSize: 13, fontWeight: '500' },
+
+  listSection: { paddingHorizontal: 20 },
+  placeCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, borderWidth: 1, marginBottom: 12 },
+  placeIconArea: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   placeInfo: { flex: 1 },
-  placeName: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  placeName: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
   placeCity: { fontSize: 13, marginBottom: 8 },
-  tagsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  badgeContainer: { backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  badgeText: { fontSize: 11, fontWeight: '700' },
-  levelBadge: { backgroundColor: 'rgba(100,116,139,0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  levelText: { fontSize: 11, fontWeight: '700' },
+  tagsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  distBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   distText: { fontSize: 12, fontWeight: '600' },
   
-  routeBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
-  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
-  detailSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, borderWidth: 1 },
-  sheetHandle: { width: 48, height: 4, borderRadius: 99, alignSelf: 'center', marginBottom: 14 },
-  detailTitle: { fontSize: 20, fontWeight: '800', marginBottom: 6 },
-  detailSub: { fontSize: 13, marginBottom: 8 },
-  detailDesc: { fontSize: 14, marginBottom: 12 },
-  detailGrid: { gap: 6, marginBottom: 16 },
-  detailItem: { fontSize: 13, fontWeight: '600' },
+  loadMoreBtn: { paddingVertical: 14, borderRadius: 16, borderWidth: 1, alignItems: 'center', marginTop: 10, borderStyle: 'dashed' },
+  loadMoreText: { fontSize: 15, fontWeight: '600' },
+
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  detailSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, borderWidth: 1, borderBottomWidth: 0 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 24 },
+  sheetHeader: { flexDirection: 'row', gap: 16, alignItems: 'center', marginBottom: 24 },
+  sheetIconBox: { width: 60, height: 60, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  detailTitle: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  detailSub: { fontSize: 14, fontWeight: '500' },
+  detailGrid: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 24 },
+  gridItem: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  gridText: { fontSize: 14, fontWeight: '500', flex: 1 },
   detailActions: { flexDirection: 'row', gap: 12 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14 },
-  actionText: { color: '#FFF', fontWeight: '700' },
-  actionBtnOutline: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1 },
-  actionTextOutline: { fontWeight: '700' }
+  actionBtn: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 16, borderRadius: 16 },
+  actionText: { fontSize: 16, fontWeight: '700' }
 });
