@@ -25,11 +25,25 @@ export default function Login({ navigation }) {
     border: isDark ? '#334155' : '#E2E8F0',
   };
 
-  const fazerLogin = async () => {
+  const validarCredenciais = () => {
     if (!email.trim() || !senha) {
       Alert.alert('Atenção', 'Preencha o e-mail e a senha.');
-      return;
+      return false;
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert('E-mail inválido', 'Informe um e-mail válido.');
+      return false;
+    }
+    if (senha.length < 8) {
+      Alert.alert('Senha inválida', 'A senha deve ter pelo menos 8 caracteres.');
+      return false;
+    }
+    return true;
+  };
+
+  const fazerLogin = async () => {
+    if (!validarCredenciais()) return;
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
@@ -37,7 +51,10 @@ export default function Login({ navigation }) {
     });
     setLoading(false);
     if (error) {
-      Alert.alert('Erro ao entrar', 'E-mail ou senha incorretos.');
+      const mensagem = error.message?.toLowerCase().includes('email')
+        ? 'Verifique o e-mail e a senha.'
+        : 'Não foi possível entrar. Tente novamente.';
+      Alert.alert('Erro ao entrar', mensagem);
     } else {
       navigation.replace('MainTabs');
     }
@@ -100,6 +117,24 @@ export default function Login({ navigation }) {
                   </>
               }
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('Cadastro')}
+              disabled={loading}
+            >
+              <Text style={[styles.secondaryText, { color: C.sub }]}>Criar nova conta</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkBtn}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('ForgotPassword')}
+              disabled={loading}
+            >
+              <Text style={[styles.linkText, { color: C.accent }]}>Esqueci minha senha</Text>
+            </TouchableOpacity>
           </View>
 
         </KeyboardAvoidingView>
@@ -121,4 +156,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 16, fontWeight: '500' },
   btn: { flexDirection: 'row', height: 60, borderRadius: 18, justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 8, shadowColor: '#10B981', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { height: 6, width: 0 }, elevation: 6 },
   btnText: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+  secondaryBtn: { alignItems: 'center', marginTop: 12 },
+  secondaryText: { fontSize: 14, fontWeight: '600' },
+  linkBtn: { alignItems: 'center', marginTop: 10 },
+  linkText: { fontSize: 14, fontWeight: '700' },
 });

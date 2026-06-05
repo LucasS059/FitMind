@@ -6,6 +6,7 @@ import { ThemeContext } from '../contexts/ThemeContext';
 
 import Home from '../screens/Home';
 import Explorar from '../screens/Explorar';
+import Modalidades from '../screens/Modalidades';
 import Perfil from '../screens/Perfil';
 
 const Tab = createBottomTabNavigator();
@@ -37,6 +38,11 @@ export default function MainBottomTabs() {
         name="ExplorarTab" 
         component={Explorar} 
         options={{ tabBarLabel: 'Explorar', tabBarIcon: ({ color, size }) => (<MaterialCommunityIcons name="compass-outline" color={color} size={size} />) }} 
+      />
+      <Tab.Screen 
+        name="ModalidadesTab" 
+        component={Modalidades} 
+        options={{ tabBarLabel: 'Modalidades', tabBarIcon: ({ color, size }) => (<MaterialCommunityIcons name="basketball" color={color} size={size} />) }} 
       />
       <Tab.Screen 
         name="PerfilTab" 

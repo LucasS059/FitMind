@@ -52,16 +52,21 @@ export default function Home({ navigation }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: perfil } = await supabase
+      const { data: perfil, error: perfilError } = await supabase
         .from('perfis')
         .select('nome, ia_creditos')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (perfil) {
-        setNomeUsuario(perfil.nome.split(' ')[0]);
-        setCreditosIA(perfil.ia_creditos);
+      if (perfilError) {
+        console.warn('Erro ao buscar perfil:', perfilError.message);
       }
+
+      if (perfil?.nome) {
+        setNomeUsuario(perfil.nome.split(' ')[0]);
+      }
+
+      setCreditosIA(perfil?.ia_creditos ?? 0);
 
       const { data: treinos } = await supabase
         .from('treinos')
@@ -118,6 +123,33 @@ export default function Home({ navigation }) {
     buscarModalidades();
   }, []));
 
+  const salvarSugestoesIA = async (sugestoes) => {
+    if (!Array.isArray(sugestoes) || sugestoes.length === 0) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const payload = sugestoes
+        .map((item) => ({
+          perfil_id: user.id,
+          modalidade_id: item.modalidade_id || null,
+          local_id: item.local_id || null,
+          local_nome: item.local_nome || null,
+          latitude: item.latitude || null,
+          longitude: item.longitude || null,
+          score: item.score || null,
+          fonte: item.fonte || 'chat-ia',
+        }))
+        .filter((item) => item.local_id || item.local_nome || (item.latitude && item.longitude));
+
+      if (payload.length === 0) return;
+      await supabase.from('sugestoes_ia').insert(payload);
+    } catch (error) {
+      console.warn('Erro ao salvar sugestoes IA:', error.message);
+    }
+  };
+
   const perguntarParaIA = async () => {
     if (!pergunta.trim()) return;
 
@@ -136,6 +168,10 @@ export default function Home({ navigation }) {
 
       const novaMensagemIA = { id: (Date.now() + 1).toString(), role: 'ai', text: data.resposta };
       setMensagensChat(prev => [...prev, novaMensagemIA]);
+
+      if (Array.isArray(data?.sugestoes)) {
+        await salvarSugestoesIA(data.sugestoes);
+      }
 
       if (data.creditos_restantes !== undefined) {
         setCreditosIA(data.creditos_restantes);
@@ -172,6 +208,21 @@ export default function Home({ navigation }) {
       <Text style={[styles.statPillLabel, { color: C.subtext }]}>{label}</Text>
     </View>
   );
+
+  const buildAtividadeFromDica = (item) => {
+    const nome = item?.nome || item?.titulo || 'Atividade';
+    const dicaBase = DICAS_ESPORTES[nome] || {};
+
+    return {
+      id: item?.id,
+      modalidade_id: item?.modalidade_id || null,
+      nome,
+      youtube_url: item?.youtube_url || null,
+      alongamento: item?.alongamento || dicaBase.alongamento || 'Sem dados.',
+      aquecimento: item?.aquecimento || dicaBase.aquecimento || 'Sem dados.',
+      comoPraticar: item?.como_praticar || item?.comoPraticar || dicaBase.comoPraticar || 'Sem dados.',
+    };
+  };
 
   return (
     <SafeAreaProvider>
@@ -235,6 +286,32 @@ export default function Home({ navigation }) {
             <MaterialCommunityIcons name="chevron-right" size={26} color="rgba(255,255,255,0.7)" />
           </TouchableOpacity>
 
+          <View style={styles.quickGrid}>
+            <TouchableOpacity
+              style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('ExplorarTab')}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: `${C.accent}18` }]}>
+                <MaterialCommunityIcons name="map-search" size={20} color={C.accent} />
+              </View>
+              <Text style={[styles.quickTitle, { color: C.text }]}>Explorar locais</Text>
+              <Text style={[styles.quickSub, { color: C.subtext }]}>Parques e quadras perto</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('ModalidadesTab')}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: `${C.blue}18` }]}>
+                <MaterialCommunityIcons name="basketball" size={20} color={C.blue} />
+              </View>
+              <Text style={[styles.quickTitle, { color: C.text }]}>Modalidades</Text>
+              <Text style={[styles.quickSub, { color: C.subtext }]}>Videos e dicas por esporte</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.section}>
             <View style={styles.sectionHead}>
               <View style={[styles.sectionBar, { backgroundColor: C.accent }]} />
@@ -257,6 +334,7 @@ export default function Home({ navigation }) {
                 <TouchableOpacity
                   style={[styles.dicaCard, { backgroundColor: C.card, borderColor: C.border }]}
                   activeOpacity={0.75}
+                  onPress={() => navigation.navigate('Dicas', { atividade: buildAtividadeFromDica(item) })}
                 >
                   <View style={[styles.dicaIconBox, { backgroundColor: `${item.cor}15` }]}>
                     <MaterialCommunityIcons name={item.icone} size={26} color={item.cor} />
@@ -352,7 +430,11 @@ export default function Home({ navigation }) {
                         activeOpacity={0.7}
                         onPress={() => {
                           setModalVisible(false);
-                          navigation.navigate('Tracking', { modalidade: sport.nome, usaGps: sport.usa_gps });
+                          navigation.navigate('Tracking', {
+                            modalidade: sport.nome,
+                            modalidadeId: sport.id,
+                            usaGps: sport.usa_gps,
+                          });
                         }}
                       >
                         <View style={[styles.sportIconWrap, { backgroundColor: `${cor}15` }]}>
@@ -547,6 +629,11 @@ const styles = StyleSheet.create({
   ctaTitle: { color: '#FFF', fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   ctaSub: { color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: '500', marginTop: 2 },
   section: { marginBottom: 32 },
+  quickGrid: { marginHorizontal: 20, marginBottom: 32, flexDirection: 'row', gap: 12 },
+  quickCard: { flex: 1, borderRadius: 20, borderWidth: 1, padding: 14 },
+  quickIcon: { width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  quickTitle: { fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  quickSub: { fontSize: 12, fontWeight: '600' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 16, gap: 10 },
   sectionBar: { width: 4, height: 20, borderRadius: 4 },
   sectionTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },

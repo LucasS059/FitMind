@@ -4,16 +4,21 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import YoutubePlayer from 'react-native-youtube-iframe'; // NOVO IMPORT
 
 export default function Dicas({ route, navigation }) {
-  const { atividade } = route.params;
-
-  // Dicionário temporário com os IDs dos vídeos do YouTube
-  // Para adicionar do Basquete depois, é só colocar 'Basquete': 'ID_DO_VIDEO'
-  const videoIds = {
-    'Futebol': '9MqGN09LEpY', // Coloquei um vídeo genérico de dicas de futebol aqui! Substitua pelo seu.
+  const atividade = route?.params?.atividade || {
+    nome: 'Atividade',
+    alongamento: 'Sem dados.',
+    aquecimento: 'Sem dados.',
+    comoPraticar: 'Sem dados.',
   };
 
-  // Verifica se o esporte selecionado tem um vídeo cadastrado no dicionário acima
-  const videoSelecionado = videoIds[atividade.nome];
+  const getYoutubeId = (url) => {
+    if (!url) return null;
+    const match = String(url).match(/(?:v=|\.be\/|embed\/)([A-Za-z0-9_-]{6,})/);
+    return match ? match[1] : null;
+  };
+
+  const videoSelecionado = getYoutubeId(atividade.youtube_url);
+  const comoPraticar = atividade.comoPraticar || atividade.como_praticar;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -67,7 +72,7 @@ export default function Dicas({ route, navigation }) {
           <MaterialCommunityIcons name="dumbbell" size={24} color="#10B981" />
           <Text style={styles.sectionTitle}>3. Como Praticar com Segurança</Text>
         </View>
-        <Text style={styles.sectionBody}>{atividade.comoPraticar}</Text>
+        <Text style={styles.sectionBody}>{comoPraticar}</Text>
       </View>
 
     </ScrollView>

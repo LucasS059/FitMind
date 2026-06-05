@@ -20,7 +20,7 @@ const haversineKm = (c1, c2) => {
 };
 
 export default function Tracking({ navigation, route }) {
-  const { modalidade, usaGps } = route.params || { modalidade: 'Treino', usaGps: true };
+  const { modalidade, modalidadeId, usaGps } = route.params || { modalidade: 'Treino', usaGps: true };
   const { isDark } = useContext(ThemeContext);
 
   const [location, setLocation] = useState(null);
@@ -123,6 +123,7 @@ export default function Tracking({ navigation, route }) {
 
       const { error } = await supabase.from('treinos').insert({
         perfil_id:       user.id,
+        modalidade_id:   modalidadeId || null,
         modalidade:      modalidade,
         distancia_km:    parseFloat(distanciaKm.toFixed(2)),
         duracao_minutos: tempoMinutos,

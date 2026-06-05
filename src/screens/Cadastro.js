@@ -18,6 +18,11 @@ export default function Cadastro({ navigation }) {
       Alert.alert('Campos obrigatórios', 'Por favor, preencha todos os campos.');
       return false;
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert('E-mail inválido', 'Informe um e-mail válido.');
+      return false;
+    }
     if (password !== confirmPassword) {
       Alert.alert('Senhas diferentes', 'A senha e a confirmação não coincidem.');
       return false;
@@ -48,8 +53,13 @@ export default function Cadastro({ navigation }) {
     if (error) {
       Alert.alert('Erro no cadastro', error.message);
     } else {
-      Alert.alert('Sucesso', 'Conta criada! Você já pode entrar.');
-      navigation.goBack(); // Volta para a tela de Login automaticamente
+      if (data?.session) {
+        Alert.alert('Bem-vindo', 'Conta criada com sucesso.');
+        navigation.replace('MainTabs');
+      } else {
+        Alert.alert('Confirme seu e-mail', 'Enviamos um link para ativar sua conta.');
+        navigation.goBack();
+      }
     }
     
     setLoading(false);

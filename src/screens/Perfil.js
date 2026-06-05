@@ -65,19 +65,32 @@ export default function Perfil({ navigation }) {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from('perfis').select('*').eq('id', user.id).single();
-      if (data) {
-        setPerfil({
-          nome:             data.nome || '',
-          email:            user.email || '',
-          ia_creditos:      data.ia_creditos || 0,
-          peso_kg:          data.peso_kg || '',
-          altura_cm:        data.altura_cm || '',
-          sexo:             data.sexo || 'M',
-          data_nascimento:  data.data_nascimento || '',
-        });
-        setForm({ nome: data.nome || '', peso_kg: String(data.peso_kg || ''), altura_cm: String(data.altura_cm || '') });
+
+      const { data, error } = await supabase
+        .from('perfis')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('Erro ao buscar perfil:', error.message);
       }
+
+      const perfilData = data || {};
+      setPerfil({
+        nome:             perfilData.nome || '',
+        email:            user.email || '',
+        ia_creditos:      perfilData.ia_creditos || 0,
+        peso_kg:          perfilData.peso_kg || '',
+        altura_cm:        perfilData.altura_cm || '',
+        sexo:             perfilData.sexo || 'M',
+        data_nascimento:  perfilData.data_nascimento || '',
+      });
+      setForm({
+        nome: perfilData.nome || '',
+        peso_kg: String(perfilData.peso_kg || ''),
+        altura_cm: String(perfilData.altura_cm || ''),
+      });
     } finally {
       setLoading(false);
     }
@@ -98,11 +111,16 @@ export default function Perfil({ navigation }) {
     try {
       setSalvando(true);
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from('perfis').update({
-        nome: form.nome.trim(),
-        peso_kg: peso,
-        altura_cm: altura,
-      }).eq('id', user.id);
+      if (!user) throw new Error('Sessao expirada');
+
+      const { error } = await supabase
+        .from('perfis')
+        .upsert({
+          id: user.id,
+          nome: form.nome.trim(),
+          peso_kg: peso,
+          altura_cm: altura,
+        }, { onConflict: 'id' });
       if (error) throw error;
       await carregarPerfil();
       setEditVisible(false);
