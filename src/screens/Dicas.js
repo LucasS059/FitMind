@@ -1,19 +1,23 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import YoutubePlayer from 'react-native-youtube-iframe'; // NOVO IMPORT
+import { Video, ResizeMode } from 'expo-av'; // NOVO IMPORT DO EXPO-AV
 
 export default function Dicas({ route, navigation }) {
   const { atividade } = route.params;
 
-  // Dicionário temporário com os IDs dos vídeos do YouTube
-  // Para adicionar do Basquete depois, é só colocar 'Basquete': 'ID_DO_VIDEO'
-  const videoIds = {
-    'Futebol': '9MqGN09LEpY', // Coloquei um vídeo genérico de dicas de futebol aqui! Substitua pelo seu.
+  // Dicionário com os caminhos dos vídeos locais.
+  const videoSources = {
+    'Futebol': require('../../assets/videos/futebol.mp4'),
+    'Basquete': require('../../assets/videos/basquete.mp4'),
+    'Tênis': require('../../assets/videos/tenis.mp4'),
+    'Caminhada': require('../../assets/videos/caminhada.mp4'),
+    'Ciclismo': require('../../assets/videos/ciclismo.mp4'),
+    'Corrida': require('../../assets/videos/corrida.mp4'),
   };
 
-  // Verifica se o esporte selecionado tem um vídeo cadastrado no dicionário acima
-  const videoSelecionado = videoIds[atividade.nome];
+  // Puxa o arquivo de vídeo correspondente ao esporte aberto
+  const videoSelecionado = videoSources[atividade.nome];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -26,14 +30,17 @@ export default function Dicas({ route, navigation }) {
       <Text style={styles.title}>{atividade.nome}</Text>
       <Text style={styles.subtitle}>Guia de preparação e execução</Text>
 
-      {/* SISTEMA DE VÍDEO INTELIGENTE */}
+      {/* NOVO SISTEMA DE VÍDEO NATIVO (LOOP E MUDO) */}
       {videoSelecionado ? (
         <View style={styles.videoContainer}>
-          <YoutubePlayer
-            height={200}
-            play={false}
-            videoId={videoSelecionado}
-            webViewStyle={{ opacity: 0.99 }} // Pequeno truque para evitar bugs visuais no Android
+          <Video
+            source={videoSelecionado}
+            style={{ width: '100%', height: 200 }}
+            resizeMode={ResizeMode.CONTAIN}
+            shouldPlay={true} // Autoplay
+            isLooping={true}  // Repete infinitamente
+            isMuted={true}    // Força ficar sem som, deixando o app mais leve
+            useNativeControls 
           />
         </View>
       ) : (
@@ -82,11 +89,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 32, fontWeight: '900', color: '#1E293B' },
   subtitle: { fontSize: 16, color: '#64748B', marginBottom: 24, marginTop: 4 },
   
-  // O container do vídeo precisa de 'overflow: hidden' para ficar com os cantos arredondados bonitos
   videoContainer: { borderRadius: 24, overflow: 'hidden', marginBottom: 24, elevation: 4, backgroundColor: '#000' },
-  
   videoPlaceholder: { backgroundColor: '#1E293B', height: 200, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
   videoText: { color: '#94A3B8', marginTop: 8, fontSize: 14, fontWeight: '500' },
+  
   sectionCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16, elevation: 2 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', marginLeft: 10 },

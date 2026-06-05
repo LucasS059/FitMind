@@ -24,26 +24,21 @@ export default function Home({ navigation }) {
     border: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
   };
 
-  async function fetchModalidades() {
-    try {
-      const { data, error } = await supabase
-        .from('modalidades') 
-        .select('*')
-        .order('nome', { ascending: true });
-
-      if (error) throw error;
-      setLista(data || []);
-    } catch (error) {
-      console.error('Erro:', error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
+// Criamos a lista de botões direto no código
   useEffect(() => {
-    fetchModalidades();
+    const listaFixa = [
+      { id: '1', nome: 'Futebol', icone: 'soccer' },
+      { id: '2', nome: 'Basquete', icone: 'basketball' },
+      { id: '3', nome: 'Tênis', icone: 'tennis' },
+      { id: '4', nome: 'Caminhada', icone: 'walk' },
+      { id: '5', nome: 'Ciclismo', icone: 'bike' },
+      { id: '6', nome: 'Corrida', icone: 'run' }
+    ];
+    
+    setLista(listaFixa);
+    setLoading(false);
   }, []);
-
+  
   // 2. ADICIONADO O EVENTO onPress PARA NAVEGAR PASSANDO O 'item'
   const renderSportItem = ({ item }) => (
       <TouchableOpacity 

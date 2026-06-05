@@ -55,7 +55,7 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      {true ? (
+      {session ? (
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,

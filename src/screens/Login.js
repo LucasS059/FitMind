@@ -4,14 +4,18 @@ import {
   Alert, ActivityIndicator, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { supabase } from '../services/supabase';
+// icone de olho para mostrar/ocultar senha
+import { MaterialCommunityIcons } from '@expo/vector-icons'; 
 
-// Recebe a propriedade 'navigation' para podermos trocar de tela
 export default function Login({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // controla se a senha está visível ou não
+  const [showPassword, setShowPassword] = useState(false);
 
-  const validateInputs = () => { //Validação dos campos de email e senha
+  const validateInputs = () => { 
     if (!email.trim() || !password.trim()) {
       Alert.alert('Campos obrigatórios', 'Por favor, preencha o e-mail e a senha.');
       return false;
@@ -21,7 +25,6 @@ export default function Login({ navigation }) {
       Alert.alert('E-mail inválido', 'Por favor, insira um endereço válido.');
       return false;
     }
-    // Senha com mínimo de 8 caracteres
     if (password.length < 8) {
       Alert.alert('Senha muito curta', 'A senha deve ter pelo menos 8 caracteres.');
       return false;
@@ -32,16 +35,18 @@ export default function Login({ navigation }) {
   async function signInWithEmail() { 
     if (!validateInputs()) return;
     setLoading(true);
-    const { error } = await supabase.login.signInWithPassword({ 
+    
+    const { error } = await supabase.auth.signInWithPassword({ 
       email: email.trim(), 
       password 
     });
+    
     if (error) Alert.alert('Erro ao entrar', error.message);
     setLoading(false);
   }
 
   return (
-    <KeyboardAvoidingView // Evita que o teclado cubra os campos de input
+    <KeyboardAvoidingView 
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
@@ -50,8 +55,8 @@ export default function Login({ navigation }) {
         <Text style={styles.subtitle}>Entrar</Text>
       </View>
 
-      {/* Formulário de login */}
       <View style={styles.formContainer}> 
+        {/* Campo de E-mail */}
         <View style={styles.inputWrapper}>
           <TextInput
             style={styles.input}
@@ -64,28 +69,39 @@ export default function Login({ navigation }) {
           />
         </View>
 
-        <View style={styles.inputWrapper}> //Campo de senha
+        {/* campo de senha */}
+        <View style={styles.inputWrapper}> 
           <TextInput
             style={styles.input}
             placeholder="Sua senha"
             placeholderTextColor="#94A3B8"
             value={password}
-            secureTextEntry
+            secureTextEntry={!showPassword} // Inverte a segurança dependendo do estado
             onChangeText={setPassword}
           />
+          <TouchableOpacity 
+            style={styles.eyeIcon} 
+            onPress={() => setShowPassword(!showPassword)} // Troca o estado ao clicar
+          >
+            <MaterialCommunityIcons 
+              name={showPassword ? 'eye-off' : 'eye'} // Troca o ícone (olho aberto/fechado)
+              size={24} 
+              color="#94A3B8" 
+            />
+          </TouchableOpacity>
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#10B981" style={{ marginTop: 20 }} /> //Indicador de carregamento
+          <ActivityIndicator size="large" color="#10B981" style={{ marginTop: 20 }} /> /* Indicador de carregamento */
         ) : (
           <>
             <TouchableOpacity style={styles.primaryButton} onPress={signInWithEmail}> 
               <Text style={styles.primaryButtonText}>Entrar</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity //Botão para navegar para a tela de Cadastro
+            <TouchableOpacity 
               style={styles.secondaryButton} 
-              onPress={() => navigation.navigate('Cadastro')} //Navega para a tela de Cadastro
+              onPress={() => navigation.navigate('Cadastro')} 
             >
               <Text style={styles.secondaryButtonText}>Criar nova conta</Text>
             </TouchableOpacity>
@@ -100,20 +116,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
-    justifyContent: 'flex-start', // No topo
+    justifyContent: 'flex-start',
     padding: 24,
-    paddingTop: 120, //Distância da barra de status
+    paddingTop: 120, 
   },
   headerContainer: {
-    marginBottom: 30, // Distância entre o header e o formulário
-    alignItems: 'center', // Centralizado
+    marginBottom: 30, 
+    alignItems: 'center', 
   },
   title: {
     fontSize: 42,
     fontWeight: '900',
     color: '#1E293B',
     letterSpacing: -1,
-    marginBottom: 120, // Espaço entre o título e o subtítulo
+    marginBottom: 120, 
   },
   subtitle: {
     fontSize: 24,
@@ -124,6 +140,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputWrapper: {
+    flexDirection: 'row', // Alinha o texto e o ícone na mesma linha
+    alignItems: 'center', // Centraliza verticalmente
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     marginBottom: 16,
@@ -134,10 +152,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   input: {
+    flex: 1, // Faz o campo de texto ocupar todo o espaço possível
     paddingHorizontal: 20,
     paddingVertical: 18,
     fontSize: 16,
     color: '#1E293B',
+  },
+  eyeIcon: {
+    padding: 15, 
   },
   primaryButton: {
     backgroundColor: '#10B981',
