@@ -4,8 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { supabase } from '../services/supabase';
-import { ThemeContext } from '../contexts/ThemeContext'; // Usando o tema global!
+import { supabase } from '../../services/supabase';
+import { ThemeContext } from '../../contexts/ThemeContext'; // Usando o tema global!
 
 export default function Explorar() {
   const { isDark } = useContext(ThemeContext);

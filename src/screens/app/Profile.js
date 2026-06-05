@@ -5,8 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { supabase } from '../services/supabase';
-import { ThemeContext } from '../contexts/ThemeContext';
+import { supabase } from '../../services/supabase';
+import { ThemeContext } from '../../contexts/ThemeContext';
 
 export default function Perfil({ navigation }) {
   const { isDark, setIsDark } = useContext(ThemeContext);

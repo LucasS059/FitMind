@@ -4,8 +4,8 @@ import MapView, { Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../services/supabase';
-import { ThemeContext } from '../contexts/ThemeContext';
+import { supabase } from '../../services/supabase';
+import { ThemeContext } from '../../contexts/ThemeContext';
 
 const haversineKm = (c1, c2) => {
   const R = 6371;
