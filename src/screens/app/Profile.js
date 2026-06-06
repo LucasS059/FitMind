@@ -152,7 +152,6 @@ export default function Perfil({ navigation }) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
-        {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>Perfil</Text>
           <TouchableOpacity style={[styles.editBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={abrirEdicao}>
@@ -161,7 +160,6 @@ export default function Perfil({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Avatar + Nome */}
         <View style={styles.section}>
           <View style={[styles.avatarCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.avatarCircle, { backgroundColor: colors.accent + '20' }]}>
@@ -173,7 +171,6 @@ export default function Perfil({ navigation }) {
               <Text style={[styles.userName, { color: colors.text }]}>{perfil.nome || 'Usuário FitMind'}</Text>
               <Text style={[styles.userEmail, { color: colors.sub }]}>{perfil.email}</Text>
               
-              {/* Só exibe Idade/Sexo se estiverem preenchidos no banco */}
               {(idade || perfil.sexo) && (
                 <Text style={[styles.userAge, { color: colors.sub }]}>
                   {idade ? `${idade} anos` : ''} {idade && perfil.sexo ? '•' : ''} {perfil.sexo === 'M' ? 'Masculino' : perfil.sexo === 'F' ? 'Feminino' : ''}
@@ -183,7 +180,6 @@ export default function Perfil({ navigation }) {
           </View>
         </View>
 
-        {/* Dados Físicos */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Dados Físicos</Text>
           <View style={[styles.cardBlock, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -196,7 +192,6 @@ export default function Perfil({ navigation }) {
             )}
           </View>
 
-          {/* Aviso se o perfil estiver incompleto */}
           {(!perfil.peso_kg || !perfil.altura_cm) && (
             <TouchableOpacity style={[styles.alertBox, { backgroundColor: warningColor + '15', borderColor: warningColor + '30' }]} onPress={abrirEdicao}>
               <MaterialCommunityIcons name="information-outline" size={20} color={warningColor} />
@@ -205,7 +200,6 @@ export default function Perfil({ navigation }) {
           )}
         </View>
 
-        {/* Configurações */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Aplicativo</Text>
           <View style={[styles.cardBlock, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -224,7 +218,6 @@ export default function Perfil({ navigation }) {
           </View>
         </View>
 
-        {/* Logout */}
         <TouchableOpacity style={[styles.logoutBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={fazerLogout}>
           <MaterialCommunityIcons name="logout" size={20} color={dangerColor} />
           <Text style={[styles.logoutText, { color: dangerColor }]}>Sair da conta</Text>
@@ -232,7 +225,6 @@ export default function Perfil({ navigation }) {
 
       </ScrollView>
 
-      {/* Modal de Edição Dinâmico */}
       <Modal animationType="slide" transparent visible={editVisible} onRequestClose={() => setEditVisible(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.overlay}>
           <View style={[styles.editSheet, { backgroundColor: colors.bg, borderColor: colors.border }]}>
@@ -247,7 +239,6 @@ export default function Perfil({ navigation }) {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               
-              {/* Input Nome */}
               <View style={styles.inputGroup}>
                 <Text style={[styles.fieldLabel, { color: colors.text }]}>Nome de Exibição</Text>
                 <View style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -261,7 +252,6 @@ export default function Perfil({ navigation }) {
                 </View>
               </View>
 
-              {/* Input Peso */}
               <View style={styles.inputGroup}>
                 <Text style={[styles.fieldLabel, { color: colors.text }]}>Peso Atual (kg)</Text>
                 <View style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -276,7 +266,6 @@ export default function Perfil({ navigation }) {
                 </View>
               </View>
 
-              {/* Input Altura */}
               <View style={styles.inputGroup}>
                 <Text style={[styles.fieldLabel, { color: colors.text }]}>Altura (cm)</Text>
                 <View style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border }]}>

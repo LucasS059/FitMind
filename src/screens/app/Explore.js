@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform, ActivityIndicator, Alert, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
@@ -14,16 +14,17 @@ export default function Explorar() {
   const [modalidades, setModalidades] = useState([]);
   const [minhaLocalizacao, setMinhaLocalizacao] = useState(null);
   
-  // Estados de Controle de UI
   const [loading, setLoading] = useState(true);
   const [isFetchingMap, setIsFetchingMap] = useState(false);
   const [detalheVisible, setDetalheVisible] = useState(false);
   const [localSelecionado, setLocalSelecionado] = useState(null);
   const [modalidadeAtiva, setModalidadeAtiva] = useState(null);
   
-  // Estados Novos: Raio e Paginação
-  const [raioBuscaKm, setRaioBuscaKm] = useState(3); // 1, 3 ou 5 km
-  const [itensVisiveis, setItensVisiveis] = useState(5); // Começa mostrando 5 itens
+  const [raioBuscaKm, setRaioBuscaKm] = useState(3);
+  const [itensVisiveis, setItensVisiveis] = useState(5);
+  const [erroMapa, setErroMapa] = useState(false);
+  const [tentativas, setTentativas] = useState(0);
+  const [permissaoNegada, setPermissaoNegada] = useState(false);
 
   const calcularDistancia = (lat1, lon1, lat2, lon2) => {
     const R = 6371;
@@ -33,42 +34,44 @@ export default function Explorar() {
     return (R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))).toFixed(1); 
   };
 
-  // 1. EFEITO INICIAL: Pega GPS e Modalidades uma única vez
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         let { status } = await Location.requestForegroundPermissionsAsync();
-        let userLat = -23.6815; // Padrão
-        let userLng = -46.6205; 
         
-        if (status === 'granted') {
-          let loc = await Location.getCurrentPositionAsync({});
-          userLat = loc.coords.latitude;
-          userLng = loc.coords.longitude;
+        if (status !== 'granted') {
+          setPermissaoNegada(true);
+          setLoading(false);
+          return;
         }
-        setMinhaLocalizacao({ latitude: userLat, longitude: userLng });
+
+        let loc = await Location.getCurrentPositionAsync({});
+        setMinhaLocalizacao({ 
+          latitude: loc.coords.latitude, 
+          longitude: loc.coords.longitude 
+        });
 
         const { data: modalidadesDB } = await supabase.from('modalidades').select('id, nome, icone');
         setModalidades(modalidadesDB || []);
       } catch (error) {
-        console.error("Erro no GPS:", error);
+        setPermissaoNegada(true);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  // 2. EFEITO SECUNDÁRIO: Busca no OpenStreetMap sempre que a localização ou o RAIO mudar
   useEffect(() => {
     if (!minhaLocalizacao) return;
 
-    // Criamos um AbortController para cancelar requisições "encavaladas"
     const abortController = new AbortController();
 
     (async () => {
       try {
         setIsFetchingMap(true);
+        setErroMapa(false);
+
         const radiusMeters = raioBuscaKm * 1000;
         const { latitude: lat, longitude: lng } = minhaLocalizacao;
 
@@ -85,11 +88,11 @@ export default function Explorar() {
         
         const resOSM = await fetch(
           `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(queryOSM)}`,
-          { signal: abortController.signal } // Atrela o cancelamento aqui
+          { signal: abortController.signal }
         );
 
         if (!resOSM.ok) {
-          throw new Error('Servidor de mapas ocupado ou erro na rede.');
+          throw new Error();
         }
 
         const dataOSM = await resOSM.json();
@@ -123,7 +126,9 @@ export default function Explorar() {
       } catch (error) {
         if (error.name === 'AbortError') return;
         
-        console.log("Aviso de Mapa: Não foi possível atualizar os dados agora.", error.message);
+        if (locais.length === 0) {
+          setErroMapa(true);
+        }
       } finally {
         setIsFetchingMap(false);
       }
@@ -132,7 +137,7 @@ export default function Explorar() {
     return () => {
       abortController.abort();
     };
-  }, [minhaLocalizacao, raioBuscaKm])
+  }, [minhaLocalizacao, raioBuscaKm, tentativas]);
 
   const alternarRaio = () => {
     setRaioBuscaKm(prev => prev === 1 ? 3 : prev === 3 ? 5 : 1);
@@ -184,10 +189,26 @@ export default function Explorar() {
     );
   }
 
+  if (permissaoNegada) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <MaterialCommunityIcons name="map-marker-off" size={64} color={colors.sub} style={{ marginBottom: 16 }} />
+        <Text style={[styles.pageTitle, { color: colors.text, textAlign: 'center', marginBottom: 8 }]}>GPS Necessário</Text>
+        <Text style={{ color: colors.sub, textAlign: 'center', fontSize: 16, lineHeight: 24, marginBottom: 24 }}>
+          Para encontrar parques e quadras próximas a você, precisamos da permissão de localização.
+        </Text>
+        <TouchableOpacity 
+          style={[styles.actionBtn, { backgroundColor: colors.accent, paddingHorizontal: 32 }]}
+          onPress={() => Linking.openSettings()}
+        >
+          <Text style={styles.actionText}>Abrir Configurações</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      
-      {/* Header com Ajuste de Raio ao invés da Lupa */}
       <View style={styles.topHeader}>
         <Text style={[styles.pageTitle, { color: colors.text }]}>Explorar</Text>
         <TouchableOpacity 
@@ -207,8 +228,6 @@ export default function Explorar() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        
-        {/* Chips de Filtro */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
           <TouchableOpacity 
             style={[
@@ -236,14 +255,13 @@ export default function Explorar() {
           })}
         </ScrollView>
         
-        {/* Mapa Interativo em Destaque */}
         <View style={[styles.mapWrapper, { borderColor: colors.border }]}>
           <MapView
             style={styles.map}
             initialRegion={{
               latitude: minhaLocalizacao?.latitude || -23.6815,
               longitude: minhaLocalizacao?.longitude || -46.6205,
-              latitudeDelta: raioBuscaKm === 1 ? 0.02 : raioBuscaKm === 3 ? 0.06 : 0.1, // Zoom dinâmico
+              latitudeDelta: raioBuscaKm === 1 ? 0.02 : raioBuscaKm === 3 ? 0.06 : 0.1,
               longitudeDelta: raioBuscaKm === 1 ? 0.02 : raioBuscaKm === 3 ? 0.06 : 0.1,
             }}
             showsUserLocation={true}
@@ -265,8 +283,7 @@ export default function Explorar() {
           </MapView>
         </View>
 
-        {/* Principais (Top 3) */}
-        {topSugestoes.length > 0 && (
+        {topSugestoes.length > 0 && !erroMapa && (
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Destaques Próximos</Text>
@@ -294,8 +311,30 @@ export default function Explorar() {
           </View>
         )}
 
-        {/* Lista Paginada (Evita scroll infinito) */}
-        {locaisPaginados.length > 0 && (
+        {erroMapa && locais.length === 0 ? (
+          <View style={[styles.emptyContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <MaterialCommunityIcons name="server-network-off" size={48} color={colors.sub} style={{ marginBottom: 12 }} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Servidor Ocupado</Text>
+            <Text style={[styles.emptyText, { color: colors.sub }]}>
+              O radar de mapas gratuito está recebendo muitos acessos simultâneos no mundo todo.
+            </Text>
+            <TouchableOpacity 
+              style={[styles.retryBtn, { backgroundColor: colors.accent }]}
+              onPress={() => setTentativas(prev => prev + 1)}
+            >
+              <MaterialCommunityIcons name="refresh" size={20} color="#FFF" />
+              <Text style={styles.retryBtnText}>Tentar Novamente</Text>
+            </TouchableOpacity>
+          </View>
+        ) : locaisFiltrados.length === 0 && !isFetchingMap ? (
+          <View style={[styles.emptyContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <MaterialCommunityIcons name="map-marker-off" size={48} color={colors.sub} style={{ marginBottom: 12 }} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Nenhum local encontrado</Text>
+            <Text style={[styles.emptyText, { color: colors.sub }]}>
+              Não encontramos resultados para este filtro em um raio de {raioBuscaKm}km.
+            </Text>
+          </View>
+        ) : locaisPaginados.length > 0 ? (
           <View style={styles.listSection}>
             <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 16 }]}>Resultados</Text>
             {locaisPaginados.map((local) => (
@@ -322,7 +361,6 @@ export default function Explorar() {
               </TouchableOpacity>
             ))}
 
-            {/* BOTÃO CARREGAR MAIS */}
             {locaisFiltrados.length > itensVisiveis && (
               <TouchableOpacity 
                 style={[styles.loadMoreBtn, { borderColor: colors.border }]} 
@@ -332,10 +370,9 @@ export default function Explorar() {
               </TouchableOpacity>
             )}
           </View>
-        )}
+        ) : null}
       </ScrollView>
 
-      {/* Modal de Detalhes */}
       <Modal animationType="slide" transparent visible={detalheVisible} onRequestClose={() => setDetalheVisible(false)}>
         <Pressable style={styles.overlay} onPress={() => setDetalheVisible(false)}>
           <Pressable style={[styles.detailSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -377,21 +414,17 @@ export default function Explorar() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
   topHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16 },
   pageTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
   radiusBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, height: 40, borderRadius: 12, borderWidth: 1 },
   radiusText: { fontSize: 14, fontWeight: '700' },
-  
   chipsRow: { paddingHorizontal: 20, paddingBottom: 20, gap: 8, alignItems: 'center' },
   chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1 },
   chipText: { fontSize: 14, fontWeight: '600' },
-  
   mapWrapper: { height: 260, marginHorizontal: 20, borderRadius: 20, overflow: 'hidden', marginBottom: 24, borderWidth: 1 },
   map: { flex: 1 },
   markerBody: { padding: 6, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   markerArrow: { width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 8, borderLeftColor: 'transparent', borderRightColor: 'transparent', alignSelf: 'center' },
-
   sectionBlock: { marginBottom: 24 },
   sectionHeaderRow: { paddingHorizontal: 20, marginBottom: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '700' },
@@ -402,8 +435,12 @@ const styles = StyleSheet.create({
   suggestionFooter: { gap: 4 },
   suggestionTitle: { fontSize: 16, fontWeight: '700' },
   suggestionMeta: { fontSize: 13, fontWeight: '500' },
-
   listSection: { paddingHorizontal: 20 },
+  emptyContainer: { padding: 32, alignItems: 'center', borderRadius: 24, borderWidth: 1, borderStyle: 'dashed', marginHorizontal: 20, marginTop: 10 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
+  emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  retryBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16 },
+  retryBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
   placeCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, borderWidth: 1, marginBottom: 12 },
   placeIconArea: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   placeInfo: { flex: 1 },
@@ -412,10 +449,8 @@ const styles = StyleSheet.create({
   tagsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   distBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   distText: { fontSize: 12, fontWeight: '600' },
-  
   loadMoreBtn: { paddingVertical: 14, borderRadius: 16, borderWidth: 1, alignItems: 'center', marginTop: 10, borderStyle: 'dashed' },
   loadMoreText: { fontSize: 15, fontWeight: '600' },
-
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   detailSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, borderWidth: 1, borderBottomWidth: 0 },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 24 },

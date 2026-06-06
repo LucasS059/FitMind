@@ -56,7 +56,6 @@ export default function Tracking({ navigation }) {
 
       if (mods && mods.length > 0) {
         setModalidades(mods);
-        // Abre o seletor automaticamente ao entrar no ecrã
         setShowSelector(true);
       }
     })();
@@ -137,7 +136,6 @@ export default function Tracking({ navigation }) {
   const tempoMinutos = Math.floor(tempo / 60);
 
   const iniciarComContagem = () => {
-    // Obriga a escolher modalidade antes de iniciar
     if (!modalidadeAtiva) {
       setShowSelector(true);
       return;
@@ -187,7 +185,6 @@ export default function Tracking({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* MAPA */}
       {location ? (
         <MapView
           style={styles.map}
@@ -212,7 +209,6 @@ export default function Tracking({ navigation }) {
         </View>
       )}
 
-      {/* TOP BAR */}
       <SafeAreaView style={styles.topBar}>
         <TouchableOpacity style={[styles.backBtn, { backgroundColor: colors.card }]} onPress={() => navigation.goBack()}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
@@ -224,7 +220,6 @@ export default function Tracking({ navigation }) {
         </View>
       </SafeAreaView>
 
-      {/* BOTTOM PANEL */}
       <View style={styles.bottomOverlay}>
         <View style={[styles.trackingCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           
@@ -235,7 +230,6 @@ export default function Tracking({ navigation }) {
                 onPress={() => setShowSelector(true)}
               >
                 <MaterialCommunityIcons name={modalidadeAtiva?.icone || 'help-circle-outline'} size={18} color={colors.text} />
-                {/* Mostra "Escolher" se ainda não selecionou */}
                 <Text style={[styles.sportSelectorText, { color: modalidadeAtiva ? colors.text : colors.accent }]}>
                   {modalidadeAtiva?.nome || 'Escolher modalidade'}
                 </Text>
@@ -273,7 +267,6 @@ export default function Tracking({ navigation }) {
             </View>
           </View>
 
-          {/* Botões de Ação */}
           {tempo === 0 ? (
             <TouchableOpacity 
               style={[styles.mainActionBtn, { backgroundColor: colors.accent }]} 
@@ -310,7 +303,6 @@ export default function Tracking({ navigation }) {
         </View>
       </View>
 
-      {/* OVERLAY DE COUNTDOWN (5 SEGUNDOS) */}
       {countdown !== null && (
         <View style={styles.countdownOverlay}>
           <Text style={[styles.countdownNumber, { color: colors.accent }]}>{countdown}</Text>
@@ -322,7 +314,6 @@ export default function Tracking({ navigation }) {
         </View>
       )}
 
-      {/* MODAL PARA ESCOLHER MODALIDADE */}
       <Modal visible={showSelector} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           

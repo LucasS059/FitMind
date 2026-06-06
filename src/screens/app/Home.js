@@ -20,9 +20,8 @@ export default function Home({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Estados integrados com a Base de Dados
   const [treinosNaSemana, setTreinosNaSemana] = useState(0);
-  const [metaSemanal, setMetaSemanal] = useState(5); // Padrão 5, mas atualizado pelo BD
+  const [metaSemanal, setMetaSemanal] = useState(5); 
 
   const [aiModalVisible, setAiModalVisible] = useState(false);
   const [creditosIA, setCreditosIA] = useState(5);
@@ -36,7 +35,6 @@ export default function Home({ navigation }) {
 
   const fetchData = async () => {
     try {
-      // ✅ Linha original — sem alterações
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -64,14 +62,9 @@ export default function Home({ navigation }) {
         .eq('perfil_id', user.id)
         .order('data_treino', { ascending: false });
 
-      console.log('TREINOS:', JSON.stringify(treinos));
-      console.log('TREINOS ERROR:', JSON.stringify(treinosError));
-
       if (treinos) {
-        // Separa os 3 últimos para a lista na tela
         setHistorico(treinos.slice(0, 3));
 
-        // Calcula as estatísticas gerais
         const acumulado = treinos.reduce((acc, t) => ({
           qtd: acc.qtd + 1,
           kcal: acc.kcal + (t.calorias || 0),
@@ -84,7 +77,6 @@ export default function Home({ navigation }) {
           km: acumulado.km.toFixed(1)
         });
 
-        // 3. Calcula a consistência da semana (Últimos 7 dias)
         const hoje = new Date();
         const limiteSemana = new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -118,7 +110,6 @@ export default function Home({ navigation }) {
     );
   }
 
-  // Proteção matemática para a barra não ultrapassar os 100%
   const progressoPorcentagem = Math.min((treinosNaSemana / metaSemanal) * 100, 100);
 
   return (
@@ -133,7 +124,6 @@ export default function Home({ navigation }) {
         }
       >
 
-        {/* Header Dinâmico */}
         <View style={styles.header}>
           <View>
             <Text style={[styles.greeting, { color: colors.sub }]}>{getSaudacao()}</Text>
@@ -148,7 +138,6 @@ export default function Home({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Meta Semanal Dinâmica */}
         <View style={[styles.goalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.goalHeader}>
             <Text style={[styles.goalTitle, { color: colors.text }]}>Consistência Semanal</Text>
@@ -164,7 +153,6 @@ export default function Home({ navigation }) {
           </Text>
         </View>
 
-        {/* Painel Unificado de Estatísticas */}
         <View style={styles.statsGrid}>
           <View style={[styles.gridItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <MaterialCommunityIcons name="fire" size={24} color="#F97316" style={styles.gridIcon} />
@@ -183,7 +171,6 @@ export default function Home({ navigation }) {
           </View>
         </View>
 
-        {/* Ação de Iniciar Exercício */}
         <TouchableOpacity
           style={[styles.recordButton, { backgroundColor: colors.accent }]}
           onPress={() => navigation.navigate('Tracking')}
@@ -193,7 +180,6 @@ export default function Home({ navigation }) {
           <Text style={styles.recordButtonText}>Gravar Treino</Text>
         </TouchableOpacity>
 
-        {/* Card Premium de Integração com o FitMind AI */}
         <TouchableOpacity
           style={[styles.aiCard, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => setAiModalVisible(true)}
@@ -215,7 +201,6 @@ export default function Home({ navigation }) {
           </View>
         </TouchableOpacity>
 
-        {/* Histórico Recente */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Histórico Recente</Text>
           {historico.length > 0 && (
@@ -268,7 +253,6 @@ export default function Home({ navigation }) {
         )}
       </ScrollView>
 
-      {/* Renderiza o Modal da IA */}
       <FitMindAI
         visible={aiModalVisible}
         onClose={() => setAiModalVisible(false)}

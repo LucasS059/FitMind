@@ -1,101 +1,65 @@
-import React, { useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av'; // Mantém o import do expo-av do seu amigo
+import { supabase } from '../../services/supabase';
 import { ThemeContext } from '../../contexts/ThemeContext';
 
-export default function Dicas({ route, navigation }) {
-  const { isDark, colors } = useContext(ThemeContext);
+export default function Tips({ navigation }) {
+  const { colors } = useContext(ThemeContext);
+  const [modalidades, setModalidades] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const atividade = route?.params?.atividade || {
-    nome: 'Atividade',
-    alongamento: 'Nenhuma instrução de alongamento disponível no momento.',
-    aquecimento: 'Nenhuma instrução de aquecimento disponível no momento.',
-    comoPraticar: 'Informações sobre a prática serão adicionadas em breve.',
-  };
+  useEffect(() => {
+    async function fetchModalidades() {
+      try {
+        const { data, error } = await supabase.from('modalidades').select('*').order('nome');
+        if (error) throw error;
+        setModalidades(data || []);
+      } catch (error) {
+        console.log('Erro ao buscar modalidades:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchModalidades();
+  }, []);
 
-  const videoSources = {
-    'Futebol': require('../../assets/videos/futebol.mp4'),
-    'Basquete': require('../../assets/videos/basquete.mp4'),
-    'Tênis': require('../../assets/videos/tenis.mp4'),
-    'Caminhada': require('../../assets/videos/caminhada.mp4'),
-    'Ciclismo': require('../../assets/videos/ciclismo.mp4'),
-    'Corrida': require('../../assets/videos/corrida.mp4'),
-  };
-
-  const videoSelecionado = videoSources[atividade.nome];
-  const comoPraticar = atividade.comoPraticar || atividade.como_praticar;
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.centerLoading, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>Treinos e Guias</Text>
+        <Text style={[styles.subtitle, { color: colors.sub }]}>Escolha o esporte que deseja aprender</Text>
+      </View>
+
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        
-        {/* Botão de Voltar Padronizado */}
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <View style={[styles.backIconBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
-          </View>
-          <Text style={[styles.backButtonText, { color: colors.text }]}>Voltar</Text>
-        </TouchableOpacity>
-
-        {/* Cabeçalho */}
-        <Text style={[styles.title, { color: colors.text }]}>{atividade.nome}</Text>
-        <Text style={[styles.subtitle, { color: colors.sub }]}>Guia de preparação e execução</Text>
-
-        {videoSelecionado ? (
-          <View style={[styles.videoContainer, { borderColor: colors.border }]}>
-            <Video
-              source={videoSelecionado}
-              style={styles.nativeVideo}
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay={true} 
-              isLooping={true}  
-              isMuted={true}    
-              useNativeControls 
-            />
-          </View>
-        ) : (
-          <View style={[styles.videoPlaceholder, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <MaterialCommunityIcons name="play-circle-outline" size={48} color={colors.sub} style={{ opacity: 0.5 }} />
-            <Text style={[styles.videoText, { color: colors.sub }]}>Vídeo demonstrativo em breve</Text>
-          </View>
-        )}
-
-        {/* SEÇÃO: ALONGAMENTO */}
-        <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.iconBox, { backgroundColor: colors.accent + '20' }]}>
-              <MaterialCommunityIcons name="human-stretch" size={20} color={colors.accent} />
+        {modalidades.map((item) => (
+          <TouchableOpacity 
+            key={item.id} 
+            style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => navigation.navigate('GuiasList', { modalidade: item })}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.iconBox, { backgroundColor: colors.divider }]}>
+              <MaterialCommunityIcons name={item.icone || 'dumbbell'} size={32} color={colors.accent} />
             </View>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Alongamento Recomendado</Text>
-          </View>
-          <Text style={[styles.sectionBody, { color: colors.text }]}>{atividade.alongamento}</Text>
-        </View>
-
-        {/* SEÇÃO: AQUECIMENTO */}
-        <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.iconBox, { backgroundColor: '#F59E0B20' }]}>
-              <MaterialCommunityIcons name="fire" size={20} color="#F59E0B" />
+            <View style={styles.cardInfo}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>{item.nome}</Text>
+              <Text style={[styles.cardSub, { color: colors.sub }]} numberOfLines={1}>
+                Ver guias e tutoriais
+              </Text>
             </View>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Aquecimento Prévio</Text>
-          </View>
-          <Text style={[styles.sectionBody, { color: colors.text }]}>{atividade.aquecimento}</Text>
-        </View>
-
-        {/* SEÇÃO: COMO PRATICAR */}
-        <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.iconBox, { backgroundColor: '#3B82F620' }]}>
-              <MaterialCommunityIcons name="dumbbell" size={20} color="#3B82F6" />
-            </View>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Como Praticar com Segurança</Text>
-          </View>
-          <Text style={[styles.sectionBody, { color: colors.text }]}>{comoPraticar}</Text>
-        </View>
-
+            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.sub} />
+          </TouchableOpacity>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -103,25 +67,14 @@ export default function Dicas({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40 },
-  
-  // Header e Navegação
-  backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  backIconBox: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  backButtonText: { fontSize: 16, fontWeight: '600', marginLeft: 12 },
+  centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
   title: { fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
-  subtitle: { fontSize: 16, marginBottom: 24, marginTop: 4 },
-  
-  // Players de Vídeo (Estilo unificado)
-  videoContainer: { borderRadius: 20, overflow: 'hidden', marginBottom: 24, borderWidth: 1, backgroundColor: '#000' },
-  nativeVideo: { width: '100%', height: 200 },
-  videoPlaceholder: { height: 200, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 24, borderWidth: 1, borderStyle: 'dashed' },
-  videoText: { marginTop: 12, fontSize: 14, fontWeight: '600' },
-  
-  // Cards de Conteúdo
-  sectionCard: { borderRadius: 24, padding: 20, marginBottom: 16, borderWidth: 1 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  iconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '800', marginLeft: 12 },
-  sectionBody: { fontSize: 15, lineHeight: 24, opacity: 0.9 },
+  subtitle: { fontSize: 16, marginTop: 4 },
+  content: { padding: 20, gap: 12 },
+  card: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, borderWidth: 1 },
+  iconBox: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  cardInfo: { flex: 1 },
+  cardTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  cardSub: { fontSize: 13 },
 });

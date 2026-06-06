@@ -281,7 +281,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   
-  // -- List Header --
   listHeader: {
     paddingHorizontal: 20,
     paddingTop: 16,
@@ -299,7 +298,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   
-  // -- List Container --
   listContainer: {
     padding: 20,
     paddingBottom: 40,
@@ -322,7 +320,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  // -- History Cards --
   historyCard: {
     borderRadius: 24,
     borderWidth: 1,
@@ -382,7 +379,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // -- Details View --
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -406,7 +402,6 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
   },
   
-  // -- Hero Card --
   heroCard: {
     padding: 24,
     borderRadius: 28,
@@ -464,7 +459,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // -- Sections --
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
@@ -508,7 +502,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
 
-  // -- Performance Metrics --
   metricsWrapper: {
     marginBottom: 20,
   },
