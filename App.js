@@ -1,42 +1,72 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-// Importando nossas telas
-import Home from './src/screens/Home';
-import Explorar from './src/screens/Explorar';
-import Perfil from './src/screens/Perfil';     
-
-const Tab = createBottomTabNavigator();
+import React, { useState, useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
+import { supabase } from './src/services/supabase';
+import { ThemeProvider } from './src/contexts/ThemeContext';
+import AppRoutes from './src/routes/AppRoutes';
 
 export default function App() {
+  const navigationRef = useNavigationContainerRef();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().finally(() => setReady(true));
+  }, []);
+
+  useEffect(() => {
+    const handleDeepLink = async (url) => {
+      if (!url) return;
+      const params = parseAuthParams(url);
+      if (!params?.accessToken) return;
+
+      try {
+        await supabase.auth.setSession({ 
+          access_token: params.accessToken, 
+          refresh_token: params.refreshToken 
+        });
+        
+        if (params.type === 'recovery' && navigationRef.isReady()) {
+          navigationRef.navigate('AuthStack', { screen: 'ResetPassword' });
+        }
+      } catch (error) {
+        console.warn("Erro ao processar Deep Link de autenticação:", error);
+      }
+    };
+
+    const sub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
+    Linking.getInitialURL().then(handleDeepLink).catch((err) => console.warn("Erro no URL Inicial:", err));
+    
+    return () => sub.remove();
+  }, [navigationRef]);
+
+  if (!ready) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B1120' }}>
+        <ActivityIndicator size="large" color="#10B981" />
+      </View>
+    );
+  }
+
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarStyle: { 
-            backgroundColor: '#1E293B', 
-            borderTopWidth: 0,
-            height: 65,
-            paddingBottom: 10
-          },
-          tabBarActiveTintColor: '#10B981',
-          tabBarInactiveTintColor: '#94A3B8',
-          tabBarIcon: ({ color, size }) => {
-            let iconName;
-            if (route.name === 'Início') iconName = 'home-variant';
-            else if (route.name === 'Explorar') iconName = 'map-marker-radius';
-            else if (route.name === 'Perfil') iconName = 'account-circle';
-            return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
-          },
-        })}
-      >
-        <Tab.Screen name="Início" component={Home} />
-        <Tab.Screen name="Explorar" component={Explorar} />
-        <Tab.Screen name="Perfil" component={Perfil} />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <ThemeProvider>
+      <NavigationContainer ref={navigationRef}>
+        <AppRoutes />
+      </NavigationContainer>
+    </ThemeProvider>
   );
+}
+
+function parseAuthParams(url) {
+  try {
+    const q = Linking.parse(url)?.queryParams || {};
+    if (q.access_token) return { accessToken: String(q.access_token), refreshToken: String(q.refresh_token), type: q.type || null };
+    if (url.includes('#')) {
+      const h = new URLSearchParams(url.split('#')[1] || '');
+      if (h.get('access_token')) return { accessToken: h.get('access_token'), refreshToken: h.get('refresh_token'), type: h.get('type') };
+    }
+  } catch (e) {
+    console.warn("Falha no parse do URL:", e);
+  }
+  return null;
 }
