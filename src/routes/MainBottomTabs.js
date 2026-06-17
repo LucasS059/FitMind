@@ -8,7 +8,7 @@ import Home from '../screens/app/Home';
 import Explore from '../screens/app/Explore';
 import History from '../screens/app/History';
 import Profile from '../screens/app/Profile';
-import Tips from '../screens/app/Tips'; // <-- IMPORTAMOS A TELA AQUI
+import Tips from '../screens/app/Tips';
 
 const Tab = createBottomTabNavigator();
 

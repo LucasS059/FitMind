@@ -26,15 +26,19 @@ export default function App() {
           refresh_token: params.refreshToken 
         });
         
-        if (params.type === 'recovery' && navigationRef.isReady()) {
-          navigationRef.navigate('AuthStack', { screen: 'ResetPassword' });
-        }
+        setTimeout(() => {
+          if (params.type === 'recovery' && navigationRef.isReady()) {
+            navigationRef.navigate('ResetPasswordLogged');
+          }
+        }, 300); 
+        
       } catch (error) {
         console.warn("Erro ao processar Deep Link de autenticação:", error);
       }
     };
 
     const sub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
+    
     Linking.getInitialURL().then(handleDeepLink).catch((err) => console.warn("Erro no URL Inicial:", err));
     
     return () => sub.remove();
@@ -60,10 +64,23 @@ export default function App() {
 function parseAuthParams(url) {
   try {
     const q = Linking.parse(url)?.queryParams || {};
-    if (q.access_token) return { accessToken: String(q.access_token), refreshToken: String(q.refresh_token), type: q.type || null };
+    if (q.access_token) {
+      return { 
+        accessToken: String(q.access_token), 
+        refreshToken: String(q.refresh_token), 
+        type: q.type || null 
+      };
+    }
+    
     if (url.includes('#')) {
       const h = new URLSearchParams(url.split('#')[1] || '');
-      if (h.get('access_token')) return { accessToken: h.get('access_token'), refreshToken: h.get('refresh_token'), type: h.get('type') };
+      if (h.get('access_token')) {
+        return { 
+          accessToken: h.get('access_token'), 
+          refreshToken: h.get('refresh_token'), 
+          type: h.get('type') 
+        };
+      }
     }
   } catch (e) {
     console.warn("Falha no parse do URL:", e);

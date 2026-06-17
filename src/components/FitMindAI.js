@@ -24,59 +24,61 @@ export default function FitMindAI({ visible, onClose, nome, stats, historico, cr
   };
 
   const handleAIQuery = async () => {
-  if (!aiPrompt.trim() || creditosIA <= 0) return;
-  
-  setAiLoading(true);
-  setAiResponse('');
+    if (!aiPrompt.trim() || creditosIA <= 0) return;
+    
+    setAiLoading(true);
+    setAiResponse('');
 
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Usuário não autenticado');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
 
-    const contextoTreinos = historico.map(t => 
-      `- ${t.modalidade}: ${t.distancia_km}km, ${t.calorias}kcal em ${t.data_treino}`
-    ).join('\n');
+      const contextoTreinos = historico.map(t => {
+        const nomeModalidade = t.modalidade?.nome || 'Atividade Física';
+        return `- ${nomeModalidade}: ${t.distancia_km}km, ${t.calorias}kcal em ${t.data_treino}`;
+      }).join('\n');
 
-    const promptCompleto = `
-      Você é o FitMind AI, especialista em performance física. 
-      Analise os dados de ${nome}: ${stats.qtd} treinos, ${stats.km}km totais, ${stats.kcal}kcal gastas.
-      Histórico recente: ${contextoTreinos}.
-      Pergunta do usuário: "${aiPrompt}".
-      Responda de forma curta e profissional.
-    `;
+      const promptCompleto = `
+        Você é o FitMind AI, especialista em performance física. 
+        Analise os dados de ${nome}: ${stats.qtd} treinos, ${stats.km}km totais, ${stats.kcal}kcal gastas.
+        Histórico recente: ${contextoTreinos}.
+        Pergunta do usuário: "${aiPrompt}".
+        Responda de forma curta e profissional.
+      `;
 
-    const { data, error } = await supabase.functions.invoke('chat-ia', { 
-      body: { prompt: promptCompleto } 
-    });
+      const { data, error } = await supabase.functions.invoke('chat-ia', { 
+        body: { prompt: promptCompleto } 
+      });
 
-    if (error) {
-       if (error.message?.includes('503') || error.message?.includes('unavailable')) {
-         Alert.alert('Servidor Ocupado', 'A IA está com muito tráfego agora. Tente novamente em alguns segundos.');
-       } else {
-         throw error;
-       }
-       return;
+      if (error || !data?.resposta) {
+         if (error?.message?.includes('503') || error?.message?.includes('unavailable')) {
+           Alert.alert('Servidor Ocupado', 'A IA está com muito tráfego agora. Tente novamente em alguns segundos.');
+         } else {
+           throw error || new Error("Sem resposta do modelo");
+         }
+         return;
+      }
+
+      const { data: updatedPerfil, error: updateError } = await supabase
+        .from('perfis')
+        .update({ ia_creditos: creditosIA - 1 })
+        .eq('id', user.id)
+        .select('ia_creditos') 
+        .single();
+
+      if (updateError) throw updateError;
+
+      setAiResponse(data.resposta);
+      onUpdateCreditos(updatedPerfil.ia_creditos);
+      setAiPrompt('');
+
+    } catch (error) {
+      console.error("Erro na execução da IA:", error);
+      Alert.alert('Erro', 'Ocorreu um problema ao processar sua consulta com a FitMind AI.');
+    } finally {
+      setAiLoading(false);
     }
-
-    const { data: updatedPerfil, error: updateError } = await supabase
-      .from('perfis')
-      .update({ ia_creditos: creditosIA - 1 })
-      .eq('id', user.id)
-      .select('ia_creditos') 
-      .single();
-
-    if (updateError) throw updateError;
-
-    setAiResponse(data.resposta);
-    onUpdateCreditos(updatedPerfil.ia_creditos);
-    setAiPrompt('');
-  } catch (error) {
-    console.error("Erro na execução:", error);
-    Alert.alert('Erro', 'Ocorreu um problema ao processar sua consulta.');
-  } finally {
-    setAiLoading(false);
-  }
-};
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
