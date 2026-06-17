@@ -35,23 +35,23 @@ export default function Tracking({ navigation }) {
   const [pesoPerfil, setPesoPerfil] = useState(70);
 
   const [modalidades, setModalidades] = useState([]);
-  const [modalidadeAtiva, setModalidadeAtiva] = useState(null); // começa sem seleção
+  const [modalidadeAtiva, setModalidadeAtiva] = useState(null);
   const [showSelector, setShowSelector] = useState(false);
-  
+
   const [countdown, setCountdown] = useState(null);
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
+
       const { data: perfil } = await supabase.from('perfis').select('peso_kg').eq('id', user.id).single();
       if (perfil?.peso_kg) setPesoPerfil(perfil.peso_kg);
 
       const { data: mods } = await supabase
         .from('modalidades')
         .select('*')
-        .eq('usa_gps', true) 
+        .eq('usa_gps', true)
         .order('nome');
 
       if (mods && mods.length > 0) {
@@ -87,6 +87,7 @@ export default function Tracking({ navigation }) {
 
   useEffect(() => {
     let interval;
+
     if (isTracking) {
       interval = setInterval(() => setTempo(prev => prev + 1), 1000);
 
@@ -114,7 +115,12 @@ export default function Tracking({ navigation }) {
       locationSubRef.current?.remove();
       locationSubRef.current = null;
     }
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(interval);
+      locationSubRef.current?.remove();
+      locationSubRef.current = null;
+    };
   }, [isTracking, modalidadeAtiva]);
 
   const formatTime = (seconds) => {
@@ -156,19 +162,19 @@ export default function Tracking({ navigation }) {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const { error } = await supabase.from('treinos').insert({
         perfil_id: user.id,
         modalidade_id: modalidadeAtiva.id,
         distancia_km: parseFloat(distanciaKm.toFixed(2)),
         duracao_minutos: tempoMinutos,
         calorias: caloriasTotais > 0 ? caloriasTotais : 1,
-        rota: routeCoords.length > 0 ? routeCoords : null 
+        rota: routeCoords.length > 0 ? routeCoords : null
       });
 
       if (error) throw error;
 
-      Alert.alert('✅ Missão Cumprida', 'Treino salvo com sucesso.', [
+      Alert.alert('Treino Salvo', 'Gravado com sucesso!', [
         { text: 'OK', onPress: () => navigation.replace('MainTabs') }
       ]);
     } catch (error) {
@@ -213,7 +219,7 @@ export default function Tracking({ navigation }) {
         <TouchableOpacity style={[styles.backBtn, { backgroundColor: colors.card }]} onPress={() => navigation.goBack()}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
-        
+
         <View style={[styles.gpsBadge, { backgroundColor: colors.card }]}>
           <MaterialCommunityIcons name="satellite-variant" size={16} color={location ? colors.accent : colors.sub} />
           <Text style={[styles.gpsText, { color: colors.text }]}>{location ? 'GPS Pronto' : 'Buscando...'}</Text>
@@ -222,11 +228,11 @@ export default function Tracking({ navigation }) {
 
       <View style={styles.bottomOverlay}>
         <View style={[styles.trackingCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          
+
           <View style={styles.cardHeader}>
             {!isTracking && tempo === 0 ? (
-              <TouchableOpacity 
-                style={[styles.sportSelectorBtn, { backgroundColor: isDark ? '#0B1120' : '#F1F5F9' }]} 
+              <TouchableOpacity
+                style={[styles.sportSelectorBtn, { backgroundColor: isDark ? '#0B1120' : '#F1F5F9' }]}
                 onPress={() => setShowSelector(true)}
               >
                 <MaterialCommunityIcons name={modalidadeAtiva?.icone || 'help-circle-outline'} size={18} color={colors.text} />
@@ -241,7 +247,7 @@ export default function Tracking({ navigation }) {
                 <Text style={[styles.activeSportText, { color: colors.text }]}>{modalidadeAtiva?.nome}</Text>
               </View>
             )}
-            
+
             {tempo > 0 && (
               <View style={styles.recordingStatus}>
                 <View style={[styles.pulseDot, { backgroundColor: isTracking ? '#EF4444' : colors.sub }]} />
@@ -268,8 +274,8 @@ export default function Tracking({ navigation }) {
           </View>
 
           {tempo === 0 ? (
-            <TouchableOpacity 
-              style={[styles.mainActionBtn, { backgroundColor: colors.accent }]} 
+            <TouchableOpacity
+              style={[styles.mainActionBtn, { backgroundColor: colors.accent }]}
               onPress={iniciarComContagem}
               activeOpacity={0.9}
             >
@@ -277,8 +283,8 @@ export default function Tracking({ navigation }) {
               <Text style={styles.mainActionText}>INICIAR TREINO</Text>
             </TouchableOpacity>
           ) : isTracking ? (
-            <TouchableOpacity 
-              style={[styles.mainActionBtn, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]} 
+            <TouchableOpacity
+              style={[styles.mainActionBtn, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]}
               onPress={() => setIsTracking(false)}
               activeOpacity={0.9}
             >
@@ -290,7 +296,7 @@ export default function Tracking({ navigation }) {
               <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: '#EF4444' }]} onPress={descartarTreino}>
                 <MaterialCommunityIcons name="delete" size={22} color="#FFF" />
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={[styles.resumeBtn, { backgroundColor: colors.text }]} onPress={iniciarComContagem}>
                 <Text style={[styles.resumeBtnText, { color: colors.card }]}>RETOMAR</Text>
               </TouchableOpacity>
@@ -307,7 +313,7 @@ export default function Tracking({ navigation }) {
         <View style={styles.countdownOverlay}>
           <Text style={[styles.countdownNumber, { color: colors.accent }]}>{countdown}</Text>
           <Text style={styles.countdownSub}>Prepara-te...</Text>
-          
+
           <TouchableOpacity style={styles.cancelCountdownBtn} onPress={cancelarContagem}>
             <Text style={styles.cancelCountdownText}>Cancelar</Text>
           </TouchableOpacity>
@@ -316,16 +322,16 @@ export default function Tracking({ navigation }) {
 
       <Modal visible={showSelector} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          
+
           <TouchableOpacity
             style={{ flex: 1 }}
-            onPress={() => setShowSelector(false)} 
+            onPress={() => setShowSelector(false)}
           />
-          
+
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Escolhe a modalidade</Text>
-              
+
               <TouchableOpacity onPress={() => setShowSelector(false)}>
                 <MaterialCommunityIcons name="close" size={24} color={colors.sub} />
               </TouchableOpacity>
@@ -336,11 +342,11 @@ export default function Tracking({ navigation }) {
               keyExtractor={item => item.id}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.modalItem, modalidadeAtiva?.id === item.id && { backgroundColor: isDark ? '#1E293B' : '#F1F5F9', borderColor: colors.border }]}
-                  onPress={() => { 
-                    setModalidadeAtiva(item); 
-                    setShowSelector(false); 
+                  onPress={() => {
+                    setModalidadeAtiva(item);
+                    setShowSelector(false);
                   }}
                 >
                   <View style={[styles.modalIconBox, { backgroundColor: modalidadeAtiva?.id === item.id ? colors.accent : colors.divider }]}>
@@ -356,7 +362,6 @@ export default function Tracking({ navigation }) {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
@@ -365,22 +370,22 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1, marginBottom: 180 },
   loadingMap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
+
   topBar: { position: 'absolute', top: 10, left: 20, right: 20, zIndex: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   backBtn: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
   gpsBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, elevation: 2, shadowColor: '#000', shadowOpacity: 0.1 },
   gpsText: { fontSize: 13, fontWeight: '700' },
 
   bottomOverlay: { position: 'absolute', bottom: 20, left: 20, right: 20 },
-  
+
   trackingCard: { borderRadius: 28, padding: 20, borderWidth: 1, elevation: 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 16 },
-  
+
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   sportSelectorBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
   sportSelectorText: { fontSize: 14, fontWeight: '700' },
   activeSportBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
   activeSportText: { fontSize: 14, fontWeight: '800' },
-  
+
   recordingStatus: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pulseDot: { width: 8, height: 8, borderRadius: 4 },
   recordingText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
@@ -399,10 +404,10 @@ const styles = StyleSheet.create({
   resumeBtn: { flex: 1, height: 60, borderRadius: 18, justifyContent: 'center', alignItems: 'center', elevation: 2 },
   resumeBtnText: { fontSize: 15, fontWeight: '800', letterSpacing: 0.5 },
 
-  countdownOverlay: { 
-    ...StyleSheet.absoluteFillObject, 
+  countdownOverlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    justifyContent: 'center', 
+    justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100
   },

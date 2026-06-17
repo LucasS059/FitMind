@@ -39,11 +39,22 @@ export default function FitMindAI({ visible, onClose, nome, stats, historico, cr
       }).join('\n');
 
       const promptCompleto = `
-        Você é o FitMind AI, especialista em performance física. 
-        Analise os dados de ${nome}: ${stats.qtd} treinos, ${stats.km}km totais, ${stats.kcal}kcal gastas.
-        Histórico recente: ${contextoTreinos}.
-        Pergunta do usuário: "${aiPrompt}".
-        Responda de forma curta e profissional.
+        Você é a inteligência artificial exclusiva do aplicativo FitMind, especialista em saúde e performance física.
+        
+        REGRA DE OURO ESTRITA: Sua única função é analisar e responder dúvidas baseadas EXCLUSIVAMENTE nos dados do usuário fornecidos abaixo ou em conceitos de saúde/treino. 
+        Se a pergunta do usuário for sobre QUALQUER assunto fora desse escopo (como história, descobrimento do Brasil, matemática, política, conhecimentos gerais, etc.), você está TERMINANTEMENTE PROIBIDA de responder. Nesses casos, ignore a pergunta e retorne APENAS a seguinte frase exata: "Desculpe, meu foco é exclusivo nos seus dados e na sua jornada de saúde dentro do FitMind."
+
+        DADOS DO USUÁRIO (${nome}):
+        - Total de treinos: ${stats.qtd}
+        - Distância percorrida: ${stats.km} km
+        - Calorias gastas: ${stats.kcal} kcal
+        
+        HISTÓRICO DE TREINOS: 
+        ${contextoTreinos || 'Nenhum treino registrado.'}
+
+        PERGUNTA DO USUÁRIO: "${aiPrompt}"
+        
+        Sua resposta deve ser baseada apenas nos dados acima, sendo curta, empática e profissional.
       `;
 
       const { data, error } = await supabase.functions.invoke('chat-ia', { 
@@ -82,7 +93,10 @@ export default function FitMindAI({ visible, onClose, nome, stats, historico, cr
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} 
+        style={styles.modalOverlay}
+      >
         <View style={[styles.modalContent, { backgroundColor: C.card }]}>
           
           <View style={styles.modalHeader}>
@@ -101,7 +115,11 @@ export default function FitMindAI({ visible, onClose, nome, stats, historico, cr
             </Text>
           </View>
 
-          <ScrollView style={styles.chatScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            style={styles.chatScroll} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             {aiLoading ? (
               <View style={styles.aiLoadingState}>
                 <ActivityIndicator size="small" color={C.aiPurple} />
@@ -146,8 +164,19 @@ export default function FitMindAI({ visible, onClose, nome, stats, historico, cr
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15, 23, 42, 0.4)' },
-  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, height: '65%' },
+  modalOverlay: { 
+    flex: 1, 
+    justifyContent: 'flex-end', 
+    backgroundColor: 'rgba(15, 23, 42, 0.4)' 
+  },
+  modalContent: { 
+    borderTopLeftRadius: 24, 
+    borderTopRightRadius: 24, 
+    padding: 24, 
+    maxHeight: '85%', 
+    minHeight: '60%', 
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   modalTitle: { fontSize: 17, fontWeight: '800' },
@@ -163,7 +192,7 @@ const styles = StyleSheet.create({
   helperChipText: { fontSize: 13, fontWeight: '500' },
   creditBanner: { padding: 10, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
   creditText: { fontSize: 12, fontWeight: '500' },
-  inputRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 14, marginBottom: Platform.OS === 'ios' ? 10 : 0 },
+  inputRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 14 },
   textInputField: { flex: 1, height: 46, borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, fontSize: 14 },
   sendIconField: { width: 46, height: 46, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }
 });
