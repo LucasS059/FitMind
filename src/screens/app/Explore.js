@@ -7,6 +7,28 @@ import * as Location from 'expo-location';
 import { supabase } from '../../services/supabase';
 import { ThemeContext } from '../../contexts/ThemeContext';
 
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+];
+
+const fetchOverpass = async (query, signal) => {
+  let lastError;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`, { signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      console.log(`[Overpass] Falhou em ${endpoint}:`, err.message);
+      lastError = err;
+    }
+  }
+  throw lastError;
+};
+
 export default function Explorar() {
   const { isDark, colors } = useContext(ThemeContext);
   
@@ -85,17 +107,8 @@ export default function Explorar() {
           );
           out center tags;
         `;
-        
-        const resOSM = await fetch(
-          `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(queryOSM)}`,
-          { signal: abortController.signal }
-        );
 
-        if (!resOSM.ok) {
-          throw new Error();
-        }
-
-        const dataOSM = await resOSM.json();
+        const dataOSM = await fetchOverpass(queryOSM, abortController.signal);
 
         const locaisReais = dataOSM.elements
           .map(el => {
@@ -125,7 +138,9 @@ export default function Explorar() {
 
       } catch (error) {
         if (error.name === 'AbortError') return;
-        
+
+        console.log('[Overpass] Erro final ao buscar locais:', error.name, error.message);
+
         if (locais.length === 0) {
           setErroMapa(true);
         }

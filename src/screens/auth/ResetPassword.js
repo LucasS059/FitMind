@@ -16,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
 import { ThemeContext } from '../../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { recoveryState } from '../../services/authRecovery';
+
 
 export default function ResetPassword() {
   const { isDark, colors } = useContext(ThemeContext);
@@ -58,6 +60,7 @@ export default function ResetPassword() {
         {
           text: 'Fazer Login',
           onPress: async () => {
+            recoveryState.isRecovering = false;
             await supabase.auth.signOut();
           },
         },

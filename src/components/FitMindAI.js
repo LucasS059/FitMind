@@ -39,11 +39,8 @@ export default function FitMindAI({ visible, onClose, nome, stats, historico, cr
       }).join('\n');
 
       const promptCompleto = `
-        Você é a inteligência artificial exclusiva do aplicativo FitMind, especialista em saúde e performance física.
+        Você é a inteligência artificial exclusiva do aplicativo FitMind. Atue como um personal trainer virtual e analista de dados de saúde.
         
-        REGRA DE OURO ESTRITA: Sua única função é analisar e responder dúvidas baseadas EXCLUSIVAMENTE nos dados do usuário fornecidos abaixo ou em conceitos de saúde/treino. 
-        Se a pergunta do usuário for sobre QUALQUER assunto fora desse escopo (como história, descobrimento do Brasil, matemática, política, conhecimentos gerais, etc.), você está TERMINANTEMENTE PROIBIDA de responder. Nesses casos, ignore a pergunta e retorne APENAS a seguinte frase exata: "Desculpe, meu foco é exclusivo nos seus dados e na sua jornada de saúde dentro do FitMind."
-
         DADOS DO USUÁRIO (${nome}):
         - Total de treinos: ${stats.qtd}
         - Distância percorrida: ${stats.km} km
@@ -54,20 +51,31 @@ export default function FitMindAI({ visible, onClose, nome, stats, historico, cr
 
         PERGUNTA DO USUÁRIO: "${aiPrompt}"
         
-        Sua resposta deve ser baseada apenas nos dados acima, sendo curta, empática e profissional.
+        INSTRUÇÕES DE RESPOSTA:
+        1. Analise os dados acima e responda à pergunta do usuário de forma técnica, empática, curta e motivadora.
+        2. Você DEVE responder sobre consistência de treinos, dicas de saúde, evolução física e os dados fornecidos.
+        3. REGRA DE SEGURANÇA: Se (e somente se) a pergunta for sobre um assunto TOTALMENTE alheio a saúde, exercícios ou ao aplicativo (ex: política, história, matemática, filmes), não responda. Nesses casos de fuga de tema, retorne APENAS a seguinte frase: "Desculpe, meu foco é exclusivo nos seus dados e na sua jornada de saúde dentro do FitMind."
       `;
 
       const { data, error } = await supabase.functions.invoke('chat-ia', { 
         body: { prompt: promptCompleto } 
       });
 
-      if (error || !data?.resposta) {
-         if (error?.message?.includes('503') || error?.message?.includes('unavailable')) {
-           Alert.alert('Servidor Ocupado', 'A IA está com muito tráfego agora. Tente novamente em alguns segundos.');
-         } else {
-           throw error || new Error("Sem resposta do modelo");
-         }
-         return;
+      if (error) {
+        if (error.message?.includes('non-2xx') || error.message?.includes('503') || error.message?.includes('unavailable')) {
+          Alert.alert(
+            'Servidor Ocupado 🐢', 
+            'A nossa IA está com muita demanda no momento. Aguarde alguns segundos e tente novamente.'
+          );
+        } else {
+          Alert.alert('Erro na IA', 'Não conseguimos processar sua pergunta agora.');
+        }
+        return; 
+      }
+
+      if (!data?.resposta) {
+        Alert.alert('Ops', 'A IA não retornou uma resposta válida.');
+        return;
       }
 
       const { data: updatedPerfil, error: updateError } = await supabase
@@ -84,7 +92,7 @@ export default function FitMindAI({ visible, onClose, nome, stats, historico, cr
       setAiPrompt('');
 
     } catch (error) {
-      console.error("Erro na execução da IA:", error);
+      console.error(error);
       Alert.alert('Erro', 'Ocorreu um problema ao processar sua consulta com a FitMind AI.');
     } finally {
       setAiLoading(false);
@@ -94,7 +102,8 @@ export default function FitMindAI({ visible, onClose, nome, stats, historico, cr
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? -20 : 0}
         style={styles.modalOverlay}
       >
         <View style={[styles.modalContent, { backgroundColor: C.card }]}>
@@ -172,10 +181,10 @@ const styles = StyleSheet.create({
   modalContent: { 
     borderTopLeftRadius: 24, 
     borderTopRightRadius: 24, 
-    padding: 24, 
+    padding: 20, 
     maxHeight: '85%', 
     minHeight: '60%', 
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 20,
   },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -192,7 +201,7 @@ const styles = StyleSheet.create({
   helperChipText: { fontSize: 13, fontWeight: '500' },
   creditBanner: { padding: 10, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
   creditText: { fontSize: 12, fontWeight: '500' },
-  inputRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 14 },
+  inputRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 10, marginBottom: 4 },
   textInputField: { flex: 1, height: 46, borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, fontSize: 14 },
   sendIconField: { width: 46, height: 46, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }
 });

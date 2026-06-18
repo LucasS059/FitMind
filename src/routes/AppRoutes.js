@@ -3,6 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { supabase } from '../services/supabase';
 import AuthStack from './AuthStack';
 import AppStack from './AppStack';
+import { recoveryState } from '../services/authRecovery';
 
 export default function AppRoutes() {
   const [session, setSession] = useState(null);
@@ -14,7 +15,7 @@ export default function AppRoutes() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
 
@@ -29,5 +30,7 @@ export default function AppRoutes() {
     );
   }
 
-  return session ? <AppStack /> : <AuthStack />;
+  if (!session) return <AuthStack />;
+
+  return <AppStack initialRouteName={recoveryState.isRecovering ? 'ResetPasswordLogged' : undefined} />;
 }

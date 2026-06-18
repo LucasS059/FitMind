@@ -8,6 +8,22 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
 import { ThemeContext } from '../../contexts/ThemeContext';
 
+
+function InfoRow({ icon, label, value, color, showBorder = true, colors }) {
+  return (
+    <View style={[
+      styles.infoRow,
+      showBorder && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }
+    ]}>
+      <View style={[styles.infoIcon, { backgroundColor: colors.divider }]}>
+        <MaterialCommunityIcons name={icon} size={20} color={colors.sub} />
+      </View>
+      <Text style={[styles.infoLabel, { color: colors.text }]}>{label}</Text>
+      <Text style={[styles.infoValue, { color: color || colors.text }]}>{value || '—'}</Text>
+    </View>
+  );
+}
+
 export default function Perfil({ navigation }) {
   const { isDark, setIsDark, colors } = useContext(ThemeContext);
 
@@ -17,11 +33,11 @@ export default function Perfil({ navigation }) {
   const [perfil, setPerfil] = useState({
     nome: '', email: '', peso_kg: '', altura_cm: '', sexo: '', data_nascimento: ''
   });
-  
+
   const [loading, setLoading] = useState(true);
   const [editVisible, setEditVisible] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  
+
   const [form, setForm] = useState({ peso_kg: '', altura_cm: '', nome: '' });
 
   const calcularIdade = (dataNasc) => {
@@ -57,8 +73,13 @@ export default function Perfil({ navigation }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase.from('perfis').select('*').eq('id', user.id).maybeSingle();
-      if (error) console.warn('Erro ao buscar perfil:', error.message);
+      const { data, error } = await supabase
+        .from('perfis')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
 
       const perfilData = data || {};
       setPerfil({
@@ -69,6 +90,7 @@ export default function Perfil({ navigation }) {
         sexo: perfilData.sexo || '',
         data_nascimento: perfilData.data_nascimento || '',
       });
+    } catch (err) {
     } finally {
       setLoading(false);
     }
@@ -85,13 +107,12 @@ export default function Perfil({ navigation }) {
 
   const salvarEdicao = async () => {
     const pesoTratado = form.peso_kg.replace(',', '.');
-    
     const pesoNumerico = parseFloat(pesoTratado);
     const alturaNumerica = parseInt(form.altura_cm);
-    
+
+    if (!form.nome.trim()) return Alert.alert('Aviso', 'O nome é obrigatório.');
     if (isNaN(pesoNumerico) || pesoNumerico < 30 || pesoNumerico > 300) return Alert.alert('Aviso', 'Informe um peso válido entre 30 e 300 kg.');
     if (isNaN(alturaNumerica) || alturaNumerica < 100 || alturaNumerica > 250) return Alert.alert('Aviso', 'Informe uma altura válida entre 100 e 250 cm.');
-    if (!form.nome.trim()) return Alert.alert('Aviso', 'O nome é obrigatório.');
 
     try {
       setSalvando(true);
@@ -104,13 +125,13 @@ export default function Perfil({ navigation }) {
         peso_kg: pesoNumerico,
         altura_cm: alturaNumerica,
       }, { onConflict: 'id' });
-      
+
       if (error) throw error;
-      
-      await carregarPerfil(); 
+
+      await carregarPerfil();
       setEditVisible(false);
     } catch (err) {
-      Alert.alert('Erro', 'Não foi possível salvar as alterações.');
+      Alert.alert('Erro', err?.message ?? 'Não foi possível salvar as alterações.');
     } finally {
       setSalvando(false);
     }
@@ -119,26 +140,17 @@ export default function Perfil({ navigation }) {
   const fazerLogout = () => {
     Alert.alert('Sair da conta', 'Tem certeza que deseja desconectar?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: async () => {
-        await supabase.auth.signOut();
-        navigation.replace('Login');
-      }},
+      {
+        text: 'Sair', style: 'destructive', onPress: async () => {
+          await supabase.auth.signOut();
+        }
+      },
     ]);
   };
 
   const imc = calcularIMC(Number(perfil.peso_kg), Number(perfil.altura_cm));
   const imcStatus = imc ? getIMCStatus(Number(imc)) : null;
   const idade = calcularIdade(perfil.data_nascimento);
-
-  const InfoRow = ({ icon, label, value, color = colors.text, showBorder = true }) => (
-    <View style={[styles.infoRow, showBorder && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
-      <View style={[styles.infoIcon, { backgroundColor: colors.divider }]}>
-        <MaterialCommunityIcons name={icon} size={20} color={colors.sub} />
-      </View>
-      <Text style={[styles.infoLabel, { color: colors.text }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color }]}>{value || '—'}</Text>
-    </View>
-  );
 
   if (loading) {
     return (
@@ -154,7 +166,11 @@ export default function Perfil({ navigation }) {
 
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>Perfil</Text>
-          <TouchableOpacity style={[styles.editBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={abrirEdicao}>
+          <TouchableOpacity
+            style={[styles.editBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={abrirEdicao}
+            activeOpacity={0.7}
+          >
             <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.text} />
             <Text style={[styles.editBtnText, { color: colors.text }]}>Editar</Text>
           </TouchableOpacity>
@@ -170,7 +186,7 @@ export default function Perfil({ navigation }) {
             <View style={{ flex: 1 }}>
               <Text style={[styles.userName, { color: colors.text }]}>{perfil.nome || 'Usuário FitMind'}</Text>
               <Text style={[styles.userEmail, { color: colors.sub }]}>{perfil.email}</Text>
-              
+
               {(idade || perfil.sexo) && (
                 <Text style={[styles.userAge, { color: colors.sub }]}>
                   {idade ? `${idade} anos` : ''} {idade && perfil.sexo ? '•' : ''} {perfil.sexo === 'M' ? 'Masculino' : perfil.sexo === 'F' ? 'Feminino' : ''}
@@ -183,19 +199,25 @@ export default function Perfil({ navigation }) {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Dados Físicos</Text>
           <View style={[styles.cardBlock, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <InfoRow icon="weight-kilogram" label="Peso" value={perfil.peso_kg ? `${perfil.peso_kg} kg` : null} />
-            <InfoRow icon="human-male-height" label="Altura" value={perfil.altura_cm ? `${perfil.altura_cm} cm` : null} />
+            <InfoRow icon="weight-kilogram" label="Peso" value={perfil.peso_kg ? `${perfil.peso_kg} kg` : null} colors={colors} />
+            <InfoRow icon="human-male-height" label="Altura" value={perfil.altura_cm ? `${perfil.altura_cm} cm` : null} colors={colors} />
             {imc && imcStatus ? (
-              <InfoRow icon="heart-pulse" label="IMC" value={`${imc} • ${imcStatus.texto}`} color={imcStatus.cor} showBorder={false} />
+              <InfoRow icon="heart-pulse" label="IMC" value={`${imc} • ${imcStatus.texto}`} color={imcStatus.cor} showBorder={false} colors={colors} />
             ) : (
-              <InfoRow icon="heart-pulse" label="IMC" value={null} showBorder={false} />
+              <InfoRow icon="heart-pulse" label="IMC" value={null} showBorder={false} colors={colors} />
             )}
           </View>
 
           {(!perfil.peso_kg || !perfil.altura_cm) && (
-            <TouchableOpacity style={[styles.alertBox, { backgroundColor: warningColor + '15', borderColor: warningColor + '30' }]} onPress={abrirEdicao}>
+            <TouchableOpacity
+              style={[styles.alertBox, { backgroundColor: warningColor + '15', borderColor: warningColor + '30' }]}
+              onPress={abrirEdicao}
+              activeOpacity={0.7}
+            >
               <MaterialCommunityIcons name="information-outline" size={20} color={warningColor} />
-              <Text style={[styles.alertText, { color: warningColor }]}>Complete seus dados para calcular o seu IMC corretamente.</Text>
+              <Text style={[styles.alertText, { color: warningColor }]}>
+                Complete seus dados para calcular o seu IMC corretamente.
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -218,7 +240,11 @@ export default function Perfil({ navigation }) {
           </View>
         </View>
 
-        <TouchableOpacity style={[styles.logoutBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={fazerLogout}>
+        <TouchableOpacity
+          style={[styles.logoutBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+          onPress={fazerLogout}
+          activeOpacity={0.7}
+        >
           <MaterialCommunityIcons name="logout" size={20} color={dangerColor} />
           <Text style={[styles.logoutText, { color: dangerColor }]}>Sair da conta</Text>
         </TouchableOpacity>
@@ -229,7 +255,7 @@ export default function Perfil({ navigation }) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.overlay}>
           <View style={[styles.editSheet, { backgroundColor: colors.bg, borderColor: colors.border }]}>
             <View style={[styles.sheetHandle, { backgroundColor: colors.divider }]} />
-            
+
             <View style={styles.modalHeader}>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>Editar Dados</Text>
               <TouchableOpacity onPress={() => setEditVisible(false)} style={styles.closeBtn}>
@@ -238,7 +264,7 @@ export default function Perfil({ navigation }) {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={[styles.fieldLabel, { color: colors.text }]}>Nome de Exibição</Text>
                 <View style={[styles.fieldInput, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -280,9 +306,17 @@ export default function Perfil({ navigation }) {
                 </View>
               </View>
 
-              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.accent, opacity: salvando ? 0.7 : 1 }]} onPress={salvarEdicao} disabled={salvando}>
-                {salvando ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>Salvar Alterações</Text>}
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.accent, opacity: salvando ? 0.7 : 1 }]}
+                onPress={salvarEdicao}
+                disabled={salvando}
+                activeOpacity={0.85}
+              >
+                {salvando
+                  ? <ActivityIndicator color="#FFF" />
+                  : <Text style={styles.saveBtnText}>Salvar Alterações</Text>}
               </TouchableOpacity>
+
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -294,48 +328,48 @@ export default function Perfil({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
+
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16 },
   title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   editBtnText: { fontSize: 14, fontWeight: '600' },
-  
+
   section: { paddingHorizontal: 20, marginBottom: 24 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12, marginLeft: 4 },
-  
+
   avatarCard: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, borderRadius: 24, borderWidth: 1 },
   avatarCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
   avatarLetter: { fontSize: 26, fontWeight: '800' },
   userName: { fontSize: 18, fontWeight: '700', marginBottom: 2 },
   userEmail: { fontSize: 14 },
   userAge: { fontSize: 13, marginTop: 4 },
-  
+
   cardBlock: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
   infoRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
   infoIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   infoLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
   infoValue: { fontSize: 15, fontWeight: '700' },
-  
+
   alertBox: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, padding: 16, borderRadius: 16, borderWidth: 1 },
   alertText: { fontSize: 13, fontWeight: '600', flex: 1, lineHeight: 18 },
-  
+
   settingRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  
+
   logoutBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginHorizontal: 20, padding: 16, borderRadius: 20, borderWidth: 1 },
   logoutText: { fontSize: 16, fontWeight: '600' },
-  
+
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   editSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 24, paddingBottom: 40, paddingTop: 16, borderWidth: 1, borderBottomWidth: 0, maxHeight: '85%' },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   sheetTitle: { fontSize: 22, fontWeight: '800' },
   closeBtn: { padding: 4 },
-  
+
   inputGroup: { marginBottom: 20 },
   fieldLabel: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginLeft: 4 },
   fieldInput: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, height: 56, justifyContent: 'center' },
   fieldText: { fontSize: 16, fontWeight: '500' },
-  
+
   saveBtn: { height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   saveBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 });

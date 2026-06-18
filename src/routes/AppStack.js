@@ -8,9 +8,9 @@ import ResetPassword from '../screens/auth/ResetPassword';
 
 const Stack = createNativeStackNavigator();
 
-export default function AppStack() {
+export default function AppStack({ initialRouteName = 'MainTabs' }) {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
       <Stack.Screen name="MainTabs" component={MainBottomTabs} />
       <Stack.Screen name="Tracking" component={Tracking} options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
       <Stack.Screen name="GuiasList" component={GuiasList} options={{ animation: 'slide_from_right' }} />

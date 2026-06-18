@@ -21,7 +21,7 @@ export default function Home({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const [treinosNaSemana, setTreinosNaSemana] = useState(0);
-  const [metaSemanal, setMetaSemanal] = useState(5); 
+  const [metaSemanal, setMetaSemanal] = useState(5);
 
   const [aiModalVisible, setAiModalVisible] = useState(false);
   const [creditosIA, setCreditosIA] = useState(5);
@@ -50,15 +50,15 @@ export default function Home({ navigation }) {
         if (perfil.meta_semanal) setMetaSemanal(perfil.meta_semanal);
       }
 
-      const { data: treinos, error: treinosError } = await supabase
+      const { data: treinos } = await supabase
         .from('treinos')
         .select(`
-      *,
-      modalidade:modalidades!treinos_modalidade_id_fkey(
-        nome,
-        icone
-      )
-    `)
+          *,
+          modalidade:modalidades!treinos_modalidade_id_fkey(
+            nome,
+            icone
+          )
+        `)
         .eq('perfil_id', user.id)
         .order('data_treino', { ascending: false });
 
@@ -79,12 +79,10 @@ export default function Home({ navigation }) {
 
         const hoje = new Date();
         const limiteSemana = new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000);
-
         const treinosRecentes = treinos.filter(t => new Date(t.data_treino) >= limiteSemana).length;
         setTreinosNaSemana(treinosRecentes);
       }
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -123,7 +121,6 @@ export default function Home({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }
       >
-
         <View style={styles.header}>
           <View>
             <Text style={[styles.greeting, { color: colors.sub }]}>{getSaudacao()}</Text>
@@ -148,7 +145,7 @@ export default function Home({ navigation }) {
           </View>
           <Text style={[styles.goalSub, { color: colors.sub }]}>
             {treinosNaSemana >= metaSemanal
-              ? "Meta atingida! Você está imparável. 🚀"
+              ? 'Meta atingida! Você está imparável.'
               : `Faltam ${metaSemanal - treinosNaSemana} treinos para bater a sua meta!`}
           </Text>
         </View>
@@ -229,16 +226,10 @@ export default function Home({ navigation }) {
                 activeOpacity={0.8}
               >
                 <View style={[styles.activityIconBox, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}>
-                  <MaterialCommunityIcons
-                    name={iconeModalidade}
-                    size={24}
-                    color={colors.text}
-                  />
+                  <MaterialCommunityIcons name={iconeModalidade} size={24} color={colors.text} />
                 </View>
                 <View style={styles.activityMeta}>
-                  <Text style={[styles.activityTitle, { color: colors.text }]}>
-                    {nomeModalidade}
-                  </Text>
+                  <Text style={[styles.activityTitle, { color: colors.text }]}>{nomeModalidade}</Text>
                   <Text style={[styles.activityDate, { color: colors.sub }]}>
                     {new Date(treino.data_treino).toLocaleDateString('pt-PT')}
                   </Text>
@@ -262,7 +253,6 @@ export default function Home({ navigation }) {
         creditosIA={creditosIA}
         onUpdateCreditos={(novosCreditos) => setCreditosIA(novosCreditos)}
       />
-
     </SafeAreaView>
   );
 }
@@ -318,5 +308,5 @@ const styles = StyleSheet.create({
   activityDate: { fontSize: 13, marginTop: 4, fontWeight: '500' },
   activityValues: { alignItems: 'flex-end' },
   activityDataText: { fontSize: 17, fontWeight: '800' },
-  activitySubDataText: { fontSize: 13, marginTop: 2, fontWeight: '500' }
+  activitySubDataText: { fontSize: 13, marginTop: 2, fontWeight: '500' },
 });
